@@ -25,7 +25,7 @@ class DBRC:
     cur.close()
     self.conn.commit()
 
-  def one(self):
+  def run(self):
     r = self.central_redis
     a = r.keys("Student:*:Tags")
     print(len(a))
@@ -65,6 +65,6 @@ class DBRC:
 if __name__ == "__main__":
   d = DBRC()
   #d.transfer("Tag:%d:Students" % 201, 'student_tags')
-  d.one()
+  d.run()
 
 
