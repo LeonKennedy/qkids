@@ -15,7 +15,7 @@ from produce_month_index import MonthIndexFactroy, MonthIndex
 class StudentConsumeStatistics:
 
   def __init__(self):
-    months = MonthIndexFactroy('2017-05')
+    months = MonthIndexFactroy('2018-05')
     self.bill_conn = get_bills_connection()
     self.legacy_conn = get_product_connection()
     self.students = dict()
@@ -86,9 +86,9 @@ class StudentConsumeStatistics:
   def run(self):
     for m in self.months.output:
       data = self.get_student_comsumption(m)
-      self.scan_save(data, m)
+      self.scan_transfer(data, m)
 
-  def scan_save(self, data, month):
+  def scan_transfer(self, data, month):
     for k,v in data:
       month_index = self.get_month_index_by_stduent(k)
       if month_index is None:
@@ -96,6 +96,10 @@ class StudentConsumeStatistics:
       else:
         self.consumer_df.at[month_index, month.name] += v
         self.user_df.at[month_index, month.name] += 1
+
+  def save(self):
+    self.consumer_df.to_csv('student_consumer.csv')
+    self.user_df.to_csv('student_retention.csv')
 
   def get_month_index_by_stduent(self, sid):
     for i,v in self.students.items():
@@ -111,5 +115,6 @@ if __name__ == "__main__":
   #a = sc.get_student_comsumption(m)
   #sc.agg_data(a)
   sc.run()
+  sc.save()
   print(sc.consumer_df)
 
