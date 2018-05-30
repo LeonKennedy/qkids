@@ -63,7 +63,7 @@ class StudentConsumeStatistics:
         legacy_data = list(cur.fetchall())
       with self.bill_conn.cursor() as cur:
         sql  = "select student_id, sum(lesson_count) from student_consumptions use \
-        index(created_at_idx) where created_at between %r and %r and legacy = 0 and \
+        index(created_at_idx) where created_at between %r and %r and \
         status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
         cur.execute(sql)
         new_data = cur.fetchall()
@@ -72,7 +72,7 @@ class StudentConsumeStatistics:
     else:
       with self.bill_conn.cursor() as cur:
         sql  = "select student_id, sum(lesson_count) from student_consumptions use \
-        index(created_at_idx) where created_at between %r and %r and legacy = 0 and \
+        index(created_at_idx) where created_at between %r and %r and \
         status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
         cur.execute(sql)
         return cur.fetchall()
@@ -98,8 +98,9 @@ class StudentConsumeStatistics:
         self.user_df.at[month_index, month.name] += 1
 
   def save(self):
-    self.consumer_df.to_csv('student_consumer.csv')
-    self.user_df.to_csv('student_retention.csv')
+    dire  = 'data/'
+    self.consumer_df.to_csv(dire + 'student_consumer.csv')
+    self.user_df.to_csv(dire + 'student_retention.csv')
 
   def get_month_index_by_stduent(self, sid):
     for i,v in self.students.items():
