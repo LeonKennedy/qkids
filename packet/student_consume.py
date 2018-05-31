@@ -9,7 +9,7 @@
 import sys, pdb
 sys.path.append('..')
 import pandas as pd
-from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection
+from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection
 from produce_month_index import MonthIndexFactroy, MonthIndex
 
 class StudentConsumeStatistics:
@@ -17,6 +17,7 @@ class StudentConsumeStatistics:
   def __init__(self):
     months = MonthIndexFactroy('2018-05')
     self.bill_conn = get_bills_connection()
+    self.cash_bill_conn = get_cash_billing_connection()
     self.legacy_conn = get_product_connection()
     self.students = dict()
     self.all_students = set()
@@ -29,12 +30,20 @@ class StudentConsumeStatistics:
   # 用户分组
   # 新增用户安月分
   def nil_students(self):
+    print('split student')
     for m in self.months.output:
-      print(m)
-      self.students[m.name] = self.get_student_by_month(m)
+      self.students[m.name] = self.get_student_by_month_2(m)
       self.user_df.at[m.name,'increase_student'] = len(self.students[m.name])
       self.consumer_df.at[m.name,'increase_student'] = len(self.students[m.name])
       self.all_students.update(self.students[m.name])
+
+
+  def get_student_by_month_2(self, month):
+    with self.legacy_conn.cursor() as cur:
+      sql = "select user_id from users where first_large_buy_at between %r and %r and \
+      deleted_at is null" % (month.begin, month.end)
+      cur.execute(sql)
+      return set([ i[0] for i in cur.fetchall()])
 
   def get_student_by_month(self, month):
     with self.bill_conn.cursor() as cur:
@@ -47,35 +56,41 @@ class StudentConsumeStatistics:
   def get_student_comsumption(self, m):
     if m.name < '2017-08':
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, sum(lesson_count) from consumes where created_at  \
-        between %r and %r and status_id = 2 and deleted_at is null group by \
-        user_id" % (m.begin, m.end)
+        sql = "select user_id, lesson_count from consumes where created_at  \
+        between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         return cur.fetchall()
     elif m.name == '2017-08':
       legacy_data = list()
       new_data = None
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, sum(lesson_count) from consumes where created_at  \
-        between %r and %r and status_id = 2 and deleted_at is null group by \
-        user_id" % (m.begin, m.end)
+        sql = "select user_id, lesson_count from consumes where created_at  \
+        between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         legacy_data = list(cur.fetchall())
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, sum(lesson_count) from student_consumptions use \
-        index(created_at_idx) where created_at between %r and %r and \
-        status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
+        sql  = "select student_id, lesson_count from student_consumptions use \
+        index(created_at_idx) where created_at between %r and %r and status = 2 \
+        and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         new_data = cur.fetchall()
       legacy_data.extend(new_data)
       return legacy_data
     else:
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, sum(lesson_count) from student_consumptions use \
+        sql  = "select student_id, lesson_count from student_consumptions use \
         index(created_at_idx) where created_at between %r and %r and \
-        status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
+        status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
-        return cur.fetchall()
+        data = cur.fetchall()
+      if m.name < '2018-03':
+        return data
+      with self.cash_bill_conn.cursor() as cur:
+        sql = "select student_id, case room_type when 2 then 1.5 when 5 then 2.5 \
+        else 3 end from student_consumptions where created_at between %r and %r and \
+        status = 2 and deleted_at is null " % (m.begin, m.end)
+        cur.execute(sql)
+        return data + cur.fetchall() 
 
   def agg_data(self, data):
     student = dict()
@@ -84,18 +99,20 @@ class StudentConsumeStatistics:
     return student
 
   def run(self):
+    print('fetch records and scan')
     for m in self.months.output:
       data = self.get_student_comsumption(m)
       self.scan_transfer(data, m)
 
   def scan_transfer(self, data, month):
+    student_set = set()
     for k,v in data:
       month_index = self.get_month_index_by_stduent(k)
-      if month_index is None:
-        continue
-      else:
-        self.consumer_df.at[month_index, month.name] += v
-        self.user_df.at[month_index, month.name] += 1
+      if not month_index is None:
+        self.consumer_df.at[month_index, month.name] += 1
+        if not k in student_set:
+          self.user_df.at[month_index, month.name] += 1
+      student_set.add(k)
 
   def save(self):
     dire  = 'data/'
@@ -111,8 +128,7 @@ if __name__ == "__main__":
   #sf = StudentFirstBuy()
   #sf.nil_students()
   sc = StudentConsumeStatistics()
-  sc.nil_students()
-  m  = MonthIndex('2017-08-01', '2017-09-01')
+  #m  = MonthIndex('2017-08-01', '2017-09-01')
   #a = sc.get_student_comsumption(m)
   #sc.agg_data(a)
   sc.run()

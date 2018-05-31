@@ -8,6 +8,8 @@
 #
 
 from datetime import datetime
+import pdb
+
 
 class MonthIndex:
   
@@ -22,9 +24,10 @@ class MonthIndex:
     
 
 class MonthIndexFactroy:
-  def __init__(self, end = None):
+  def __init__(self, end = None, begin = '2015-12'):
     now = datetime.now()
-    self.end = end if end else '%d-%d' % (now.year, now.month)
+    self.begin = begin
+    self.end = end if end else '%d-%02d' % (now.year, now.month)
     self.output = self.product_index()
     self.len = len(self.output)
     self.index = [ i.name for i in self.output ]
@@ -37,5 +40,10 @@ class MonthIndexFactroy:
     output.extend([ MonthIndex('2017-%02d-01' % m, '2017-%02d-01' % (m+1)) for m in range(1,12) ])
     output.append(MonthIndex('2017-12-01', '2018-01-01'))
     output.extend([ MonthIndex('2018-%02d-01' % m, '2018-%02d-01' % (m+1)) for m in range(1,12) ])
-    return [ m for m in output if m.name <= self.end]
+    return [ m for m in output if m.name <= self.end and m.name >= self.begin]
+
+if __name__ == "__main__":
+  m = MonthIndexFactroy(begin = '2017-11')
+  for i in m.product_index():
+    print(i)
     
