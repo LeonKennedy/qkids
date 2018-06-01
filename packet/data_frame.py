@@ -7,66 +7,31 @@
 # @Last Modified: 2018-05-30 14:30:57
 
 
-import sys, pdb, os
+import sys, pdb, os, logging
 sys.path.append('..')
 import pandas as pd
 import numpy as np
-from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection
+from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 from produce_month_index import MonthIndexFactroy, MonthIndex
+from data_frame_base import BaseQkidsDataFrame
 
-
-small_product_id = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 29, 
-1003, 1004, 1005, 1006, 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
-1033, 1034, 1035, 1036, 1037, 1038)
-big_product_id = (5, 6, 13, 19)
-all_product_id = big_product_id + small_product_id
-
-def get_student_list():
-
-  filename = 'data/student_list'
-  if os.path.isfile(filename):
-    with open(filename, "r") as fo:
-      data = fo.readlines()
-    return [ int(i.replace("\n", "")) for i in data]
-  conn = get_product_connection()
-  with conn.cursor() as cur:
-    sql = "select user_id from users where encrypt_mobile_v2 is not null and deleted_at is null"
-    cur.execute(sql)
-    data = [ str(i[0]) for i in cur.fetchall()]
-    print('write to file: %s' % filename)
-    with open(filename, 'w') as fo:
-      fo.writelines([ i + '\n' for i in data])
-  return data
 
 class StatisticsDataHouse:
 
   def __init__(self):
     pass
 
-class FisrtBuyMonthStudent:
+class FisrtBuyMonthStudent(BaseQkidsDataFrame):
   
   # FisrtBuyMonth * Student
-  def __init__(self, category=1):
+  def __init__(self, category=1, statistics_type = 'sum'):
+    super(FisrtBuyMonthStudent, self).__init__(category, statistics_type)
     self.filename = 'data/firstbuymonth_student.pkl'
-    # 0 大小单 
-    # 1 大单
-    # 2 小单
-    if category == 1:
-      self.product_ids = big_product_id
-      self.cash_product_ids = (2,3,4)
-    elif category == 2:
-      self.product_ids = small_product_id
-      self.cash_product_ids = (1,)
-    else:
-      self.product_ids = all_product_id
-      self.cash_product_ids = (1,2,3,4)
 
     self.conn = get_bills_connection()
     self.cash_bill_conn = get_cash_billing_connection()
-    self.out_dataframe = None
 
-  def scan_records(self, date):
-    months = MonthIndexFactroy(date)
+  def scan_records(self, months):
     buy_set = set()
     dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list)
     for m in months.output:
@@ -97,83 +62,122 @@ class FisrtBuyMonthStudent:
       cur.execute(sql)
     return data + cur.fetchall()
 
-  def get_dataframe(self, date=None):
-    if os.path.isfile(self.filename):
-      return pd.read_pickle(self.filename)
+  def get_student_by_tag(self, tag):
+    self.log.info('get student by tag %d' % tag)
+    df = self.out_dataframe
+    split_price = 0
+    select_student_columns = list()
+    # 大单/长期用户
+    if tag == 1:
+      split_price = 1000
     else:
-      self.student_list = get_student_list()
-      self.scan_records(date)
-      print('save data frame to %s' % self.filename)
-      pd.to_pickle(self.out_dataframe, self.filename)
-      return self.out_dataframe
+      pass
+    for c in df.columns:
+      if (df.loc[:,c]  > split_price).any():
+        select_student_columns.append(c)
+    return select_student_columns
 
+class ConsumeMonthStudent(BaseQkidsDataFrame):
 
-class ConsumeMonthStudent:
-
-  def __init__(self, category=1):
+  def __init__(self, category=1, statistics_type = 'sum'):
+    super(ConsumeMonthStudent, self).__init__(category, statistics_type)
     self.filename = 'data/consumemonth_student.pkl'
+
     self.bill_conn = get_bills_connection()
     self.legacy_conn = get_product_connection()
+    self.cash_bill_conn = get_cash_billing_connection()
 
-  def scan_records(self, date=None):
-    months = MonthIndexFactroy(date)
+  def scan_records(self, months=None):
     dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list)
     for m in months.output:
-      print('fetch month %s from database' % m.name)
+      self.log.info('fetch month %s from database' % m.name)
       for row in self.get_records_by_month(m):
         sid = row[0]
         if sid in dataframe.columns:
-          dataframe.at[m.name, sid] += float(row[1])
+          dataframe.at[m.name, sid] += 1 if self.statistics_type == 'count' else float(row[1])
     self.out_dataframe = dataframe
     
   def get_records_by_month(self, m):
     if m.name < '2017-08':
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, sum(lesson_count) from consumes where created_at  \
-        between %r and %r and status_id = 2 and deleted_at is null group by \
-        user_id" % (m.begin, m.end)
+        sql = "select user_id, lesson_count from consumes where created_at  \
+        between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         return cur.fetchall()
     elif m.name == '2017-08':
       legacy_data = list()
       new_data = None
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, sum(lesson_count) from consumes where created_at  \
-        between %r and %r and status_id = 2 and deleted_at is null group by \
-        user_id" % (m.begin, m.end)
+        sql = "select user_id, lesson_count from consumes where created_at  \
+        between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         legacy_data = list(cur.fetchall())
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, sum(lesson_count) from student_consumptions use \
+        sql  = "select student_id, lesson_count from student_consumptions use \
         index(created_at_idx) where created_at between %r and %r and \
-        status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
+        status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         new_data = cur.fetchall()
       legacy_data.extend(new_data)
       return legacy_data
     else:
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, sum(lesson_count) from student_consumptions use \
+        sql  = "select student_id, lesson_count from student_consumptions use \
         index(created_at_idx) where created_at between %r and %r and \
-        status = 2 and deleted_at is null group by student_id" % (m.begin, m.end)
+        status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
-        return cur.fetchall()
+        data = cur.fetchall()
+      if m.name < '2018-03':
+        return data
+      with self.cash_bill_conn.cursor() as cur:
+        sql = "select student_id, case room_type when 2 then 1.5 when 5 then 2.5 \
+        else 3 end from student_consumptions where created_at between %r and %r and \
+        status = 2 and deleted_at is null " % (m.begin, m.end)
+        cur.execute(sql)
+        return data + cur.fetchall() 
 
-  def get_dataframe(self, date=None):
-    if os.path.isfile(self.filename):
-      return pd.read_pickle(self.filename)
-    else:
-      self.student_list = get_student_list()
-      self.scan_records(date)
-      print('save data frame to %s' % self.filename)
-      pd.to_pickle(self.out_dataframe, self.filename)
-      return self.out_dataframe
+class LessonStudent(BaseQkidsDataFrame):
+  def __init__(self, category = 1):
+    super(LessonStudent, self).__init__(category, 'count')
+    self.filename = 'data/lesson_student.pkl'
+
+    self.conn = get_course_connection()
+
+  def scan_records(self,m):
+    lessons = self.get_chapter_lesson()
+    dataframe = pd.DataFrame(0, index = lessons, columns=self.student_list)
+
+  def get_chapter_lesson(self):
+    data = dict()
+    self.chapter_lesson = dict()
+    lessons = list()
+    with self.conn.cursor() as cur:
+      sql = "select course_id, l.id from lessons l left join chapters c on c.id = l.chapter_id where course_id between 1 and 12"
+      cur.execute(sql)
+      for row in cur.fetchall():
+        lid = int(row[1])
+        lessons.append(lid)
+        if row[0] in self.chapter_lesson.keys():
+          self.chapter_lesson[row[0]].append(lid)
+        else:
+          self.chapter_lesson[row[0]] = [lid]
+    return lessons
+
 
 if __name__ == "__main__":
   f = FisrtBuyMonthStudent()
-  fb = f.get_dataframe('2018-05')
-  c = ConsumeMonthStudent()
-  cb = c.get_dataframe('2018-01')
+  fb = f.get_dataframe()
+  vip_columns = f.get_student_by_tag(1)
+  func = lambda x: 0 if x == 0 else 1
+  f = fb.filter(items = vip_columns)
+  f = f.applymap(func)
+
+  c = ConsumeMonthStudent(statistics_type='count')
+  cb = c.get_dataframe()
+  c = cb.filter(items= vip_columns)
+  a = f.dot(c.T) 
   pdb.set_trace()
-  print(cb)
+  print(a)
+
+
 
