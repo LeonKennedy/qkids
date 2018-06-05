@@ -62,20 +62,29 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
       cur.execute(sql)
     return data + cur.fetchall()
 
-  def get_student_by_tag(self, tag):
+  def get_student_by_tag(self, tag=1):
     self.log.info('get student by tag %d' % tag)
     df = self.out_dataframe
     split_price = 0
     select_student_columns = list()
+    filename = None
     # 大单/长期用户
     if tag == 1:
+      filename = 'data/vip_student_series.pkl'
       split_price = 1000
     else:
       pass
-    for c in df.columns:
-      if (df.loc[:,c]  > split_price).any():
-        select_student_columns.append(c)
-    return select_student_columns
+
+    if os.path.isfile(filename):
+      return pd.read_pickle(filename)
+    else:
+      for c in df.columns:
+        if (df.loc[:,c]  > split_price).any():
+          select_student_columns.append(c)
+      vip_columns = pd.Series(select_student_columns)
+      pd.to_pickle(vip_columns, filename)
+      return vip_columns
+
 
 class ConsumeMonthStudent(BaseQkidsDataFrame):
 
@@ -136,47 +145,89 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
         cur.execute(sql)
         return data + cur.fetchall() 
 
+
 class LessonStudent(BaseQkidsDataFrame):
   def __init__(self, category = 1):
     super(LessonStudent, self).__init__(category, 'count')
     self.filename = 'data/lesson_student.pkl'
 
     self.conn = get_course_connection()
+    self.schedule_conn = get_schedule_connection()
+    self.product_conn = get_product_connection()
+    self.get_course_lesson()
 
-  def scan_records(self,m):
-    lessons = self.get_chapter_lesson()
-    dataframe = pd.DataFrame(0, index = lessons, columns=self.student_list)
+  def scan_records(self,month):
+    lessons = self.get_course_lesson()
+    vip_student_list = self.get_student_by_tag()
+    dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list)
+    for m in month.output:
+      self.log.info('fetch month %s from databse' % m.name)
+      for row in self.get_records_by_month(m):
+        sid = row[0]
+        lid = row[1]
+        if lid in dataframe.index and sid in dataframe.columns:
+          dataframe.loc[row[1], row[0]] += 1
+      pd.to_pickle(dataframe, self.filename)
+      self.log.info('saved to file: %s' % self.filename)
+    self.out_dataframe = dataframe
 
-  def get_chapter_lesson(self):
-    data = dict()
-    self.chapter_lesson = dict()
+  def get_records_by_month(self, m):
+    legacy_data = None
+    data = None
+    #if m.name <= '2018-03':
+    if False:
+      with self.product_conn.cursor() as cur:
+        sql = "select user_id, lesson_id from user_schedules where locked_at \
+        between %r and %r and status_id = 40 and deleted_at is null" % (m.begin, m.end)
+        cur.execute(sql) 
+        legacy_data = cur.fetchall()
+    if m.name >= '2017-05':
+      with self.schedule_conn.cursor() as cur:
+        sql = "select student_id, lesson_id, begin_at from student_appointments sa \
+        join schedules s on sa.schedule_id = s.id and begin_at between %r and %r and \
+        s.is_internal = 0 and s.deleted_at is null where status = 3 and sa.deleted_at \
+        is null" % (m.begin, m.end)
+        cur.execute(sql)
+        return cur.fetchall()
+
+  def get_course_lesson(self):
+    self.log.info('get course chapter lesson stduent from database')
+    self.course_lesson = dict()
     lessons = list()
     with self.conn.cursor() as cur:
-      sql = "select course_id, l.id from lessons l left join chapters c on c.id = l.chapter_id where course_id between 1 and 12"
+      sql = "select course_id, l.id from lessons l left join chapters c on c.id = l.chapter_id \
+      where course_id between 1 and 12"
       cur.execute(sql)
       for row in cur.fetchall():
         lid = int(row[1])
         lessons.append(lid)
-        if row[0] in self.chapter_lesson.keys():
-          self.chapter_lesson[row[0]].append(lid)
+        if row[0] in self.course_lesson.keys():
+          self.course_lesson[row[0]].append(lid)
         else:
-          self.chapter_lesson[row[0]] = [lid]
+          self.course_lesson[row[0]] = [lid]
     return lessons
 
+  def aggregate_by_course(self):
+    self.log.info('get course student matrix')
+    df = pd.DataFrame()
+    for c,ls in self.course_lesson.items():
+      df[c] = self.out_dataframe.loc[ls,].sum()
+    self.course_dataframe = df
+    return df
 
 if __name__ == "__main__":
-  f = FisrtBuyMonthStudent()
-  fb = f.get_dataframe()
-  vip_columns = f.get_student_by_tag(1)
-  func = lambda x: 0 if x == 0 else 1
-  f = fb.filter(items = vip_columns)
-  f = f.applymap(func)
+  #f = FisrtBuyMonthStudent()
+  #fb = f.get_dataframe()
+  #vip_columns = f.get_student_by_tag(1)
+  #func = lambda x: 0 if x == 0 else 1
+  #f = fb.filter(items = vip_columns)
+  #f = f.applymap(func)
 
-  c = ConsumeMonthStudent(statistics_type='count')
-  cb = c.get_dataframe()
-  c = cb.filter(items= vip_columns)
-  a = f.dot(c.T) 
-  pdb.set_trace()
+  #c = ConsumeMonthStudent(statistics_type='count')
+  #cb = c.get_dataframe()
+  #c = cb.filter(items= vip_columns)
+  #a = f.dot(c.T) 
+  #pdb.set_trace()
   print(a)
 
 

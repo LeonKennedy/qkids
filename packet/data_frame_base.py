@@ -8,8 +8,10 @@
 #
 
 import logging, sys, os
+sys.path.append('..')
 import pandas as pd
 from produce_month_index import MonthIndexFactroy, MonthIndex
+from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 
 logger = logging.getLogger("main")
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
@@ -67,6 +69,7 @@ class BaseQkidsDataFrame:
       filename = '_distinct.'.join(self.filename.split('.')) 
     else:
       pass
+    self.filename = filename
       
     if not refresh and os.path.isfile(filename):
       self.log.info('get data frame from file')
@@ -79,6 +82,11 @@ class BaseQkidsDataFrame:
       self.log.info('save data frame to %s' % filename)
       pd.to_pickle(self.out_dataframe, filename)
       return self.out_dataframe
+
+  def get_student_by_tag(self, tag = 1):
+    filename = 'data/vip_student_series.pkl'
+    if os.path.isfile(filename):
+      return pd.read_pickle(filename)
 
 def get_student_list():
   filename = 'data/student_list'
