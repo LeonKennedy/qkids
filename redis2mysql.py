@@ -7,7 +7,7 @@
 # @Last Modified: 2018-05-14 16:52:44
 #
 import redis, pdb
-from LocalDatabase import get_statistics_database_connection
+from LocalDatabase import get_statistics_database_connection, get_user_connection
 from QkidsRedis import getCentral as get_central_redis
 
 class DBRC:
@@ -16,6 +16,7 @@ class DBRC:
   def __init__(self):
     self.central_redis = get_central_redis()
     self.conn = get_statistics_database_connection()
+    self.user_conn = get_user_connection()
 
   def transfer(self, key, tablename):
     cur = self.conn.cursor()
@@ -44,8 +45,7 @@ class DBRC:
     for i in r.smembers(key):
       self.select_or_insert('student_tags', {'student_id':student_id, 'tag_id': int(i)})
     self.cur.close()
-    self.conn.commit()
-
+    #self.conn.commit()
 
   def select_or_insert(self, tablename, params):
     params_str = "and".join([" %s = %r " %(k, v) for k,v in params.items() ])
@@ -60,11 +60,43 @@ class DBRC:
       insert_sql = "insert into %s (%s) values %s" % (tablename, columns, values)
       self.cur.execute(insert_sql)
       return 1
+
+  # 增量更新
+  def increase_tags(self):
+    for tag in self.get_increate_tags():
+      print('save tag: %d '% tag)
+      self.save_tag_student(tag)
    
+  def get_increate_tags(self):
+    have_tags = None
+    tags = None
+    with self.conn.cursor() as cur:
+      sql = "select distinct tag_id from student_tags"
+      cur.execute(sql)
+      have_tags = set([ i[0] for i in cur.fetchall() ])
+
+    with self.user_conn.cursor() as cur:
+      sql = "select id from tags"
+      cur.execute(sql)
+      tags = set([ i[0] for i in cur.fetchall() ])
+
+    return tags - have_tags
+
+  def save_tag_student(self,tag):
+    r = self.central_redis
+    key = "Tag:%d:Students" % tag
+    self.cur = self.conn.cursor()
+    students = r.smembers(key)
+    print('find %d students' % len(students))
+    for i in students:
+      self.select_or_insert('student_tags', {'student_id':int(i), 'tag_id': tag})
+    self.cur.close()
+    self.conn.commit()
 
 if __name__ == "__main__":
   d = DBRC()
   #d.transfer("Tag:%d:Students" % 201, 'student_tags')
-  d.run()
+  #d.run()
+  d.increase_tags()
 
 
