@@ -85,7 +85,6 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
       pd.to_pickle(vip_columns, filename)
       return vip_columns
 
-
 class ConsumeMonthStudent(BaseQkidsDataFrame):
 
   def __init__(self, category=1, statistics_type = 'sum'):
