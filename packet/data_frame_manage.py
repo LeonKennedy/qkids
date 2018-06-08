@@ -9,6 +9,7 @@
 from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent
 from produce_month_index import MonthIndexFactroy, MonthIndex
 import pdb
+from collections import Counter
 import pandas as pd
 import numpy as np
 
@@ -75,12 +76,44 @@ def my_mission_1():
   pdb.set_trace()
   print(u)
 
+# 上课统计
+def my_mission_2_1():
+  c = ConsumeMonthStudent(statistics_type='count')
+  ms = MonthIndexFactroy(end='2017-01')
+  di = pd.date_range('20151201', '20170131', freq='D')
+  #di = pd.date_range('20170201', '20180606', freq='D')
+  s = pd.Series(0, index=di)
+  for m in ms.output:
+    print(m.name)
+
+    for row in c.get_records_by_month(m):
+      s.loc[row[2]] += 1
+  pd.to_pickle(s, 'day_consum.pkl')
+  
+def my_mission_2_2():
+  c = ConsumeMonthStudent(statistics_type='count')
+  ms = MonthIndexFactroy(begin='2017-02')
+  #di = pd.date_range('20170201', '20180609', freq='D')
+  #di = pd.date_range('20170201', '20180606', freq='D')
+  #s = pd.Series(0, index=di)
+  filename = 'day_consum_2016.pkl'
+  s = pd.read_pickle(filename)
+  for m in ms.output:
+    print(m.name)
+    counter = Counter()
+    for row in c.get_records_by_month(m):
+      counter[row[2]] += 1
+    for k,v in counter.items():
+      s.loc[k] = v
+    pd.to_pickle(s, filename)
+
 
 if __name__ == "__main__":
   #mission_1(False)
   #mission_2(False)
   #mission_3(False)
-  my_mission_1()
+  #my_mission_2_1()
+  my_mission_2_2()
 
 
 

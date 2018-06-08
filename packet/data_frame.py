@@ -108,7 +108,7 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
   def get_records_by_month(self, m):
     if m.name < '2017-08':
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, lesson_count from consumes where created_at  \
+        sql = "select user_id, lesson_count ,date_format(created_at, '%%Y-%%m-%%d') from consumes where created_at  \
         between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         return cur.fetchall()
@@ -116,12 +116,12 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
       legacy_data = list()
       new_data = None
       with self.legacy_conn.cursor() as cur:
-        sql = "select user_id, lesson_count from consumes where created_at  \
+        sql = "select user_id, lesson_count , date_format(created_at, '%%Y-%%m-%%d') from consumes where created_at  \
         between %r and %r and status_id = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         legacy_data = list(cur.fetchall())
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, lesson_count from student_consumptions use \
+        sql  = "select student_id, lesson_count , date_format(created_at, '%%Y-%%m-%%d') from student_consumptions use \
         index(created_at_idx) where created_at between %r and %r and \
         status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
@@ -130,7 +130,7 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
       return legacy_data
     else:
       with self.bill_conn.cursor() as cur:
-        sql  = "select student_id, lesson_count from student_consumptions use \
+        sql  = "select student_id, lesson_count ,date_format(created_at, '%%Y-%%m-%%d') from student_consumptions use \
         index(created_at_idx) where created_at between %r and %r and \
         status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
@@ -139,7 +139,7 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
         return data
       with self.cash_bill_conn.cursor() as cur:
         sql = "select student_id, case room_type when 2 then 1.5 when 5 then 2.5 \
-        else 3 end from student_consumptions where created_at between %r and %r and \
+        else 3 end , date_format(created_at, '%%Y-%%m-%%d') from student_consumptions where created_at between %r and %r and \
         status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
         return data + cur.fetchall() 
@@ -221,13 +221,7 @@ if __name__ == "__main__":
   #func = lambda x: 0 if x == 0 else 1
   #f = fb.filter(items = vip_columns)
   #f = f.applymap(func)
-
-  #c = ConsumeMonthStudent(statistics_type='count')
+  pass
   #cb = c.get_dataframe()
   #c = cb.filter(items= vip_columns)
   #a = f.dot(c.T) 
-  #pdb.set_trace()
-  print(a)
-
-
-

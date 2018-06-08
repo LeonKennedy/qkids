@@ -97,6 +97,8 @@ if __name__ == "__main__":
   d = DBRC()
   #d.transfer("Tag:%d:Students" % 201, 'student_tags')
   #d.run()
-  d.increase_tags()
+  #d.increase_tags()
+  d.save_tag_student(277)
+
 
 
