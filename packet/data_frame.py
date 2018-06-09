@@ -11,6 +11,7 @@ import sys, pdb, os, logging
 sys.path.append('..')
 import pandas as pd
 import numpy as np
+from collections import Counter
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 from produce_month_index import MonthIndexFactroy, MonthIndex
 from data_frame_base import BaseQkidsDataFrame
@@ -33,18 +34,33 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
 
   def scan_records(self, months):
     buy_set = set()
-    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list)
+    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint8')
     for m in months.output:
+      counter = Counter()
       print('fetch month %s from database' % m.name)
       for row in self.get_student_by_month(m):
         sid = row[0]
         if sid in buy_set:
           continue
         buy_set.add(sid)
-        if sid in dataframe.columns:
-          #dataframe[row[0]] = 0
-          dataframe.at[m.name, sid] = row[1]
+        counter[sid] += int(row[1])
+
+      for k,v in counter.items():
+        if k in dataframe.columns:
+          dataframe.at[m.name, k] = v
     self.out_dataframe = dataframe
+
+
+  def increase_singleton(self, m):
+    counter = Counter()
+    buy_set = set()
+    for row in self.get_student_by_month(m):
+      sid = row[0]
+      if sid not in buy_set and sid not in self.out_dataframe.columns:
+
+        print('find student: %d %d' % (row[0], int(row[1])))
+        self.out_dataframe.insert(self.out_dataframe.columns.size,sid, 0)
+        self.out_dataframe.at[m.name, sid] = int(row[1])
 
   def get_student_by_month(self, month):
     with self.conn.cursor() as cur:
@@ -215,8 +231,8 @@ class LessonStudent(BaseQkidsDataFrame):
     return df
 
 if __name__ == "__main__":
-  #f = FisrtBuyMonthStudent()
-  #fb = f.get_dataframe()
+  f = FisrtBuyMonthStudent()
+  fb = f.get_dataframe()
   #vip_columns = f.get_student_by_tag(1)
   #func = lambda x: 0 if x == 0 else 1
   #f = fb.filter(items = vip_columns)

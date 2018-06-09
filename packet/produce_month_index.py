@@ -7,7 +7,7 @@
 # @Last Modified: 2018-05-29 11:40:39
 #
 
-from datetime import datetime
+import datetime, calendar
 import pdb
 
 
@@ -25,7 +25,7 @@ class MonthIndex:
 
 class MonthIndexFactroy:
   def __init__(self, end = None, begin = '2015-12'):
-    now = datetime.now()
+    now = datetime.datetime.now()
     self.begin = begin
     self.end = end if end else '%d-%02d' % (now.year, now.month)
     self.output = self.product_index()
@@ -41,6 +41,20 @@ class MonthIndexFactroy:
     output.append(MonthIndex('2017-12-01', '2018-01-01'))
     output.extend([ MonthIndex('2018-%02d-01' % m, '2018-%02d-01' % (m+1)) for m in range(1,12) ])
     return [ m for m in output if m.name <= self.end and m.name >= self.begin]
+
+  def get_this_month(self):
+    now = datetime.datetime.now()
+    first_day = datetime.date(now.year, now.month, 1)
+    days_num = calendar.monthrange(now.year,now.month)[1] 
+    next_first_day = first_day + datetime.timedelta(days = days_num)
+    return MonthIndex(first_day.strftime('%Y-%m-%d'), next_first_day.strftime('%Y-%m-%d'))
+
+  def get_last_month(self):
+    now = datetime.datetime.now() 
+    first_day = datetime.date(now.year, now.month, 1)
+    temp = first_day - datetime.timedelta(days = 1)
+    last_first_day = temp.replace(day=1)
+    return MonthIndex(last_first_day.strftime('%Y-%m-%d'), first_day.strftime('%Y-%m-%d'))
 
 if __name__ == "__main__":
   m = MonthIndexFactroy(begin = '2017-11')

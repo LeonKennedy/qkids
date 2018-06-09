@@ -7,7 +7,7 @@
 # @Last Modified: 2018-05-31 16:05:05
 #
 
-import logging, sys, os
+import logging, sys, os, pdb
 sys.path.append('..')
 import pandas as pd
 from produce_month_index import MonthIndexFactroy, MonthIndex
@@ -57,7 +57,19 @@ class BaseQkidsDataFrame:
 
     # 数据聚合是sum 还是 count
     self.statistics_type = statistics_type
+    # student
+    self.student_list = get_student_list()
 
+  def increase_dataframe(self):
+    m = MonthIndexFactroy()
+    tm = m.get_this_month()
+    if tm.name not in self.out_dataframe.index:
+      last_m = m.get_last_month()
+      self.out_dataframe.loc[tm.name] = 0
+      self.increase_singleton(last_m)
+    self.increase_singleton(tm)
+      
+    
   def get_dataframe(self, m=None, refresh=False):
     if m is None:
       m = MonthIndexFactroy()
@@ -74,10 +86,10 @@ class BaseQkidsDataFrame:
     if not refresh and os.path.isfile(filename):
       self.log.info('get data frame from file')
       self.out_dataframe = pd.read_pickle(filename)
+      self.increase_dataframe()
       return self.out_dataframe
     else:
       self.log.info('get data frame from database ')
-      self.student_list = get_student_list()
       self.scan_records(m)
       self.log.info('save data frame to %s' % filename)
       pd.to_pickle(self.out_dataframe, filename)
@@ -88,22 +100,37 @@ class BaseQkidsDataFrame:
     if os.path.isfile(filename):
       return pd.read_pickle(filename)
 
-def get_student_list():
+def get_student_list(refresh=False):
   filename = 'data/student_list'
   if os.path.isfile(filename):
     with open(filename, "r") as fo:
       data = fo.readlines()
-    return [ int(i.replace("\n", "")) for i in data]
+    student_list = [ int(i.replace("\n", "")) for i in data]
+    inc_students = get_increate_students(student_list[-1])
+    if len(inc_students) > 0:
+      print('write to file: %s' % filename)
+      with open(filename, 'w') as fo:
+        fo.writelines([ str(i) + '\n' for i in student_list + inc_students])
+    return set(student_list + inc_students)
   conn = get_product_connection()
   with conn.cursor() as cur:
     sql = "select user_id from users where encrypt_mobile_v2 is not null and deleted_at is null"
     cur.execute(sql)
-    data = [ str(i[0]) for i in cur.fetchall()]
+    data = [ i[0] for i in cur.fetchall()]
     print('write to file: %s' % filename)
     with open(filename, 'w') as fo:
-      fo.writelines([ i + '\n' for i in data])
-  return data
+      fo.writelines([ str(i) + '\n' for i in data])
+  return set(data)
 
+def get_increate_students(sid):
+  conn = get_product_connection()
+  print('check the increase student')
+  with conn.cursor() as cur:
+    sql = "select user_id from users where user_id > %d and encrypt_mobile_v2 is not null and deleted_at is null" % int(sid)
+    cur.execute(sql)
+    return [ str(i[0]) for i in cur.fetchall()]
+   
+  
 if __name__ == "__main__":
   b = BaseQkidsDataFrame()
     

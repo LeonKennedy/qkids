@@ -13,6 +13,9 @@ from collections import Counter
 import pandas as pd
 import numpy as np
 
+def data_frame_1(refresh=False):
+  f = FisrtBuyMonthStudent()
+  fb = f.get_dataframe()
 
 # 1. 每个月的新长期用户  *   课消
 def mission_1(refresh):
@@ -90,6 +93,8 @@ def my_mission_2_1():
       s.loc[row[2]] += 1
   pd.to_pickle(s, 'day_consum.pkl')
   
+ 
+#每日消耗
 def my_mission_2_2():
   c = ConsumeMonthStudent(statistics_type='count')
   ms = MonthIndexFactroy(begin='2017-02')
@@ -113,12 +118,5 @@ if __name__ == "__main__":
   #mission_2(False)
   #mission_3(False)
   #my_mission_2_1()
-  my_mission_2_2()
-
-
-
-  
-
-
-
-
+  #my_mission_2_2()
+  data_frame_1()
