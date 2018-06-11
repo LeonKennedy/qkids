@@ -49,31 +49,33 @@ class UserRecharge:
 
     s1 = set()
     s2 = set()
+    experience_price = float()
     actual_price = float()
 
     for row in data:
       if row[1] in self.small_product_id:
         s1.add(row[2])
+        experience_price += float(row[3])
       else:
         if not row[2] in self.bill_students:
           s2.add(row[2])
           actual_price += float(row[3])
           self.bill_students.add(row[2])
 
-    return s1, s2, actual_price
+    return s1, experience_price, s2, actual_price
 
   def combin(self):
     output = list()
     for m in self.month_index.output:
-      s1, s2, aprice = self.query_month(m)
+      s1, sp, s2, aprice = self.query_month(m)
       self.bill_100_students.update(s1)
       total_100 = len(self.bill_100_students)
       new_100 = len(s1)
       
       new_bill = len(s2)
       bill = len(self.bill_students)
-      print('%d, %d, %d, %d, %f' % (total_100, new_100, bill, new_bill, aprice))
-      output.append((m.name, total_100, new_100, 100 * new_100, bill, new_bill, aprice))
+      print('%d, %d, %f, %d, %d, %f' % (total_100, new_100, sp, bill, new_bill, aprice))
+      output.append((m.name, total_100, new_100, sp, bill, new_bill, aprice))
     self.save(output)
 
   def save(self, data):
