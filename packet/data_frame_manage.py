@@ -13,15 +13,17 @@ from collections import Counter
 import pandas as pd
 import numpy as np
 
+vip_filename = 'data/vip_student_series.pkl'
 def data_frame_1(refresh=False):
   f = FisrtBuyMonthStudent()
-  fb = f.get_dataframe()
+  fb = f.get_dataframe(refresh=refresh)
+  f.create_vip_student_series()
 
 # 1. 每个月的新长期用户  *   课消
 def mission_1(refresh):
   f = FisrtBuyMonthStudent()
   fb = f.get_dataframe()
-  vip_columns = pd.read_pickle('vip_student')
+  vip_columns = pd.read_pickle(vip_filename)
   #pd.to_pickle(vip_columns, 'vip_student')
   func = lambda x: 0 if x == 0 else 1
   f = fb.filter(items = vip_columns)
@@ -33,13 +35,13 @@ def mission_1(refresh):
   a = f.dot(c.T) 
   count_student = f.sum(axis= 1)
   a.insert(0, 'count', count_student)
-  a.to_csv('data/student_concumser.csv')
+  a.to_csv('data/student_consumser.csv')
 
 # 2. 每个月的新长期用户  *   留存 只算一次
 def mission_2(refresh):
   f = FisrtBuyMonthStudent()
   fb = f.get_dataframe()
-  vip_columns = pd.read_pickle('vip_student')
+  vip_columns = pd.read_pickle(vip_filename)
   #pd.to_pickle(vip_columns, 'vip_student')
   func = lambda x: 0 if x == 0 else 1
   f = fb.filter(items = vip_columns)
@@ -58,14 +60,14 @@ def mission_2(refresh):
 def mission_3(refresh):
   f = FisrtBuyMonthStudent()
   fb = f.get_dataframe(refresh=refresh)
-  fvip = f.get_student_by_tag(1)
+  vip_columns = pd.read_pickle(vip_filename)
   func = lambda x: 0 if x == 0 else 1
-  f = fb.filter(items = fvip)
+  f = fb.filter(items = vip_columns)
   f = f.applymap(func)
 
   ls = LessonStudent()
   m = MonthIndexFactroy(begin='2017-05')
-  lsb = ls.get_dataframe(m, refresh=refresh)
+  lsb = ls.get_dataframe(m, refresh=True)
   course_matrix = ls.aggregate_by_course()
   a = f.dot(course_matrix)
   a.to_csv('data/lesson_student.csv')
@@ -116,7 +118,7 @@ def my_mission_2_2():
 if __name__ == "__main__":
   #mission_1(False)
   #mission_2(False)
-  #mission_3(False)
+  mission_3(False)
   #my_mission_2_1()
   #my_mission_2_2()
-  data_frame_1()
+  #data_frame_1(True)

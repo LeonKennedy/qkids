@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 
 class BaseQkidsDataFrame:
 
-  def __init__(self, category=1, statistics_type = 'sum'):
+  def __init__(self, category=3, statistics_type = 'sum'):
     self.log =  logger
     self.log.info('initial %s', self.__class__)
     
@@ -63,12 +63,15 @@ class BaseQkidsDataFrame:
   def increase_dataframe(self):
     m = MonthIndexFactroy()
     tm = m.get_this_month()
+    for s in self.student_list:
+      if s > self.out_dataframe.columns[-1]:
+        self.out_dataframe.insert(self.out_dataframe.columns.size,s, 0)
     if tm.name not in self.out_dataframe.index:
       last_m = m.get_last_month()
       self.out_dataframe.loc[tm.name] = 0
       self.increase_singleton(last_m)
     self.increase_singleton(tm)
-      
+    pd.to_pickle(self.out_dataframe, self.filename)
     
   def get_dataframe(self, m=None, refresh=False):
     if m is None:
@@ -123,13 +126,13 @@ def get_student_list(refresh=False):
   return set(data)
 
 def get_increate_students(sid):
+  return []
   conn = get_product_connection()
   print('check the increase student')
   with conn.cursor() as cur:
     sql = "select user_id from users where user_id > %d and encrypt_mobile_v2 is not null and deleted_at is null" % int(sid)
     cur.execute(sql)
-    return [ str(i[0]) for i in cur.fetchall()]
-   
+    return [ i[0] for i in cur.fetchall()]
   
 if __name__ == "__main__":
   b = BaseQkidsDataFrame()

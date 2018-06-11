@@ -23,7 +23,7 @@ class UserRecharge:
     self.cur = self.conn.cursor()
     self.output_file = 'data/user_recharge.csv'
 
-    self.small_product_id = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 29, 
+    self.small_product_id = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 28, 27, 29, 
     1003, 1004, 1005, 1006, 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
     1033, 1034, 1035, 1036, 1037, 1038)
     self.big_product_id = (5, 6, 13, 19)

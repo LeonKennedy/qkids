@@ -34,7 +34,7 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
 
   def scan_records(self, months):
     buy_set = set()
-    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint8')
+    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint16')
     for m in months.output:
       counter = Counter()
       print('fetch month %s from database' % m.name)
@@ -56,11 +56,13 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     buy_set = set()
     for row in self.get_student_by_month(m):
       sid = row[0]
-      if sid not in buy_set and sid not in self.out_dataframe.columns:
+      if sid not in buy_set :
+        counter[sid] += int(row[1])
+        buy_set.add(sid)
 
-        print('find student: %d %d' % (row[0], int(row[1])))
-        self.out_dataframe.insert(self.out_dataframe.columns.size,sid, 0)
-        self.out_dataframe.at[m.name, sid] = int(row[1])
+    for k,v in counter.items():
+      if k in self.out_dataframe.columns:
+        self.out_dataframe.at[m.name, k] = v
 
   def get_student_by_month(self, month):
     with self.conn.cursor() as cur:
@@ -98,8 +100,22 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
         if (df.loc[:,c]  > split_price).any():
           select_student_columns.append(c)
       vip_columns = pd.Series(select_student_columns)
+      print('save vip serires')
       pd.to_pickle(vip_columns, filename)
       return vip_columns
+
+  def create_vip_student_series(self):
+    filename = 'data/vip_student_series.pkl'
+    select_student_columns = list()
+    split_price = 1000
+    df = self.out_dataframe
+    for c in df.columns:
+      if (df.loc[:,c]  > split_price).any():
+        select_student_columns.append(c)
+    vip_columns = pd.Series(select_student_columns)
+    pdb.set_trace()
+    print('save vip serires')
+    pd.to_pickle(vip_columns, filename)
 
 class ConsumeMonthStudent(BaseQkidsDataFrame):
 
@@ -110,6 +126,17 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
     self.bill_conn = get_bills_connection()
     self.legacy_conn = get_product_connection()
     self.cash_bill_conn = get_cash_billing_connection()
+
+
+  def increase_singleton(self, m):
+    counter = Counter()
+    for row in self.get_records_by_month(m):
+      sid = row[0]
+      counter[sid] += 1 if self.statistics_type == 'count' else float(row[1])
+
+    for k,v in counter.items():
+      if k in self.out_dataframe.columns:
+        self.out_dataframe.at[m.name, k] = v
 
   def scan_records(self, months=None):
     dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list)
@@ -174,7 +201,7 @@ class LessonStudent(BaseQkidsDataFrame):
   def scan_records(self,month):
     lessons = self.get_course_lesson()
     vip_student_list = self.get_student_by_tag()
-    dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list)
+    dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list, dtype='uint8')
     for m in month.output:
       self.log.info('fetch month %s from databse' % m.name)
       for row in self.get_records_by_month(m):
@@ -204,6 +231,12 @@ class LessonStudent(BaseQkidsDataFrame):
         is null" % (m.begin, m.end)
         cur.execute(sql)
         return cur.fetchall()
+
+  def increase_dataframe(self):
+    pass
+
+  def increase_singleton(self, m):
+    pass
 
   def get_course_lesson(self):
     self.log.info('get course chapter lesson stduent from database')
