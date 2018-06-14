@@ -139,13 +139,21 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
         self.out_dataframe.at[m.name, k] = v
 
   def scan_records(self, months=None):
-    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list)
+    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint16')
+    buy_set = set()
     for m in months.output:
       self.log.info('fetch month %s from database' % m.name)
       for row in self.get_records_by_month(m):
         sid = row[0]
-        if sid in dataframe.columns:
-          dataframe.at[m.name, sid] += 1 if self.statistics_type == 'count' else float(row[1])
+        if sid in dataframe.columns :
+          if self.statistics_type == 'count':
+            dataframe.at[m.name, sid] += 1
+          elif self.statistics_type == 'distinct':
+            if sid not in buy_set:
+              dataframe.at[m.name, sid] = float(row[1])
+              buy_set.add(sid)
+          else:
+            dataframe.at[m.name, sid] += float(row[1])
     self.out_dataframe = dataframe
     
   def get_records_by_month(self, m):

@@ -39,15 +39,16 @@ class BaseQkidsDataFrame:
     all_product_id = big_product_id + small_product_id
 
     self.filename = 'data/temp.pkl'
-    # 0 大小单 
+    # 3 大小单 
     # 1 大单
     # 2 小单
+    self.category = category
     if category == 1:
       self.product_ids = big_product_id
       self.cash_product_ids = (2,3,4)
     elif category == 2:
       self.product_ids = small_product_id
-      self.cash_product_ids = (1,)
+      self.cash_product_ids = (1, 999)
     else:
       self.product_ids = all_product_id
       self.cash_product_ids = (1,2,3,4)
@@ -78,10 +79,11 @@ class BaseQkidsDataFrame:
       m = MonthIndexFactroy()
 
     filename = self.filename
+    filename = ('_'+str(self.category)+'.').join(self.filename.split('.')) 
     if self.statistics_type == 'count':
-      filename = '_count.'.join(self.filename.split('.'))
+      filename = '_count.'.join(filename.split('.'))
     elif self.statistics_type == 'distinct':
-      filename = '_distinct.'.join(self.filename.split('.')) 
+      filename = '_distinct.'.join(filename.split('.')) 
     else:
       pass
     self.filename = filename

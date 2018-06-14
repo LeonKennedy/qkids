@@ -71,7 +71,27 @@ def mission_3(refresh):
   course_matrix = ls.aggregate_by_course()
   a = f.dot(course_matrix)
   a.to_csv('data/lesson_student.csv')
-  print(a)
+
+# 4.体课/新签人数/购买活动包  首次购买正价包
+def mission_4(refresh):
+  f = FisrtBuyMonthStudent(category=2, statistics_type='distinct')
+  fb = f.get_dataframe(refresh=refresh)
+  fv = FisrtBuyMonthStudent(category=1, statistics_type='distinct')
+  fvb = fv.get_dataframe(refresh=refresh)
+  func = lambda x: 0 if x == 0 else 1
+  f = fb.applymap(func)
+  fv = fvb.applymap(func)
+  a = f.dot(fv.T)
+  count_student = f.sum(axis= 1)
+  a.insert(0, 'count', count_student)
+  pdb.set_trace()
+  a.to_csv('data/experience_student_format_buy.csv')
+  
+# 5.购买正价包  在次购买正价包
+def mission_5(refresh):
+  f = FisrtBuyMonthStudent(category=1, statistics_type='count')
+  fb = f.get_dataframe(refresh=refresh)
+  pdb.set_trace()
  
 def my_mission_1():
   ls = LessonStudent()
@@ -118,7 +138,9 @@ def my_mission_2_2():
 if __name__ == "__main__":
   #mission_1(False)
   #mission_2(False)
-  mission_3(False)
+  #mission_3(False)
+  #mission_4(False)
+  mission_5(False)
   #my_mission_2_1()
   #my_mission_2_2()
   #data_frame_1(True)
