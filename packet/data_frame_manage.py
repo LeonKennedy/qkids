@@ -91,7 +91,49 @@ def mission_4(refresh):
 def mission_5(refresh):
   f = FisrtBuyMonthStudent(category=1, statistics_type='count')
   fb = f.get_dataframe(refresh=refresh)
+  s1 = pd.DataFrame(0, index = fb.index, columns = (0,), dtype='uint8')
+  s2 = pd.DataFrame(0, index = fb.index, columns = (0,), dtype='uint8')
+  s3 = pd.DataFrame(0, index = fb.index, columns = (0,), dtype='uint8')
+  for student in fb.iteritems():
+    times = 0
+    for c in student[1].items():
+      if c[1] > 0:
+        if times == 0:
+          s1.insert(s1.columns.size, student[0] , 0)
+          s2.insert(s2.columns.size, student[0] , 0)
+          s3.insert(s3.columns.size, student[0] , 0)
+          s1.loc[c[0], student[0]] = 1
+        elif times == 1:
+          s2.loc[c[0], student[0]] = 1
+        elif times == 2:
+          s3.loc[c[0], student[0]] = 1
+          continue
+        times += 1
+  a = s1.dot(s2.T)
+  a.insert(0, 'count', s1.sum(axis=1))
+  a.to_csv('data/student_format_rebuy.csv')
+  b = s1.dot(s3.T)
+  b.insert(0, 'count', s1.sum(axis=1))
+  b.to_csv('data/student_format_rebuy_2.csv')
+  return s1, s2, s3
+
+# 6.购买正价包  在次购买活动课包
+def mission_6(refresh):
+  f = FisrtBuyMonthStudent(category=1, statistics_type='distinct')
+  fb = f.get_dataframe(refresh=refresh)
+  func = lambda x: 0 if x == 0 else 1
+  fb = fb.applymap(func)
+  fs = FisrtBuyMonthStudent(category=2, statistics_type='count')
+  fsb = fs.get_dataframe(refresh=refresh)
   pdb.set_trace()
+  a = fb.dot(fsb.T)
+  count_student = fb.sum(axis= 1)
+  a.insert(0, 'count', count_student)
+  a.to_csv('data/format_stduent_experience_buy.csv')
+
+
+def misson_7(refresh):
+  pass
  
 def my_mission_1():
   ls = LessonStudent()
@@ -140,7 +182,8 @@ if __name__ == "__main__":
   #mission_2(False)
   #mission_3(False)
   #mission_4(False)
-  mission_5(False)
+  #mission_5(False)
+  mission_6(False)
   #my_mission_2_1()
   #my_mission_2_2()
   #data_frame_1(True)

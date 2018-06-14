@@ -33,23 +33,26 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     self.cash_bill_conn = get_cash_billing_connection()
 
   def scan_records(self, months):
-    buy_set = set()
     dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint16')
+    buy_set = set()
     for m in months.output:
       counter = Counter()
       print('fetch month %s from database' % m.name)
       for row in self.get_student_by_month(m):
         sid = row[0]
-        if sid in buy_set:
-          continue
-        buy_set.add(sid)
-        counter[sid] += int(row[1])
+        if self.statistics_type == 'count':
+          counter[sid] += 1
+        elif self.statistics_type == 'distinct':
+          if sid not in buy_set:
+            counter[sid] += float(row[1])
+            buy_set.add(sid)
+        else:
+          counter[sid] += float(row[1])
 
       for k,v in counter.items():
         if k in dataframe.columns:
           dataframe.at[m.name, k] = v
     self.out_dataframe = dataframe
-
 
   def increase_singleton(self, m):
     counter = Counter()
