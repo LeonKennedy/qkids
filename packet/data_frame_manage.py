@@ -6,9 +6,11 @@
 # @Create: 2018-05-31 16:04:25
 # @Last Modified: 2018-05-31 16:04:25
 
+import sys, pdb
+sys.path.append('..')
+from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent
 from produce_month_index import MonthIndexFactroy, MonthIndex
-import pdb
 from collections import Counter
 import pandas as pd
 import numpy as np
@@ -131,9 +133,114 @@ def mission_6(refresh):
   a.insert(0, 'count', count_student)
   a.to_csv('data/format_stduent_experience_buy.csv')
 
+# 7 正价课首单 *  发生退费行为
+def mission_7(refresh):
+  month_list = ['2015-12', '2016-01', '2016-02', '2016-03','2017-03','2016-04','2016-05','2016-06','2016-07','2016-08',
+  '2016-09','2016-10','2016-11', '2016-12','2017-01','2017-02','2017-03', '2017-04','2017-05','2017-06','2017-07',
+  '2017-08','2017-09','2017-10','2017-11', '2017-12', '2018-01', '2018-02', '2018-03', '2018-04', '2018-05', '2018-06']
+  df = pd.DataFrame(0, index = month_list, columns = month_list, dtype='uint8')
+  student_set = set()
+  bills = dict()
 
-def misson_7(refresh):
-  pass
+  conn = get_bills_connection()
+  with conn.cursor() as cur:
+    sql = "select id, student_id, paid_at from bills where product_id \
+    in (5,6,13,19) and status in (20, 70, 80) and student_id > 0 and deleted_at \
+    is null"
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      if r[1] not in student_set:
+        student_set.add(r[1])
+        month = r[2].strftime('%Y-%m')
+        if month in bills.keys():
+          bills[month].append(r[0])
+        else:
+          bills[month] = [r[0],]
+
+  with conn.cursor() as cur:
+    sql = "select bill_id, updated_at from refunds where status = 3 and type = 0 and deleted_at is null"
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      for m,ml in bills.items():
+        if r[0] in ml:
+          df.loc[m, r[1].strftime('%Y-%m')] += 1
+
+  conn = get_product_connection()
+  with conn.cursor() as cur:
+    sql = "select bill_id, updated_at from refund where deleted_at is null and status_id = 20 "
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      for m,ml in bills.items():
+        if r[0] in ml:
+          df.loc[m, r[1].strftime('%Y-%m')] += 1
+
+  cash_bills = dict()
+  conn = get_cash_billing_connection() 
+
+  with conn.cursor() as cur: 
+    sql = "select id, student_id, paid_at from bills where product_id in (2,3,4) and \
+    status in  (20, 70, 80) and deleted_at is null"
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      if r[1] not in student_set:
+        student_set.add(r[1])
+        month = r[2].strftime('%Y-%m')
+        if month in cash_bills.keys():
+          cash_bills[month].append(r[0])
+        else:
+          cash_bills[month] = [r[0],]
+
+  with conn.cursor() as cur: 
+    sql = "select bill_id, updated_at from refunds where status = 3 and type = 0 and deleted_at is null"
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      for m,ml in cash_bills.items():
+        if r[0] in ml:
+          df.loc[m, r[1].strftime('%Y-%m')] += 1
+
+  print(df) 
+  df.insert(0, 'count', 0)
+  for m in month_list:
+    lb = len(bills[m]) if m in bills.keys() else 0
+    lcb = len(cash_bills[m]) if m in cash_bills.keys() else 0 
+    df.loc[m, 'count'] = lb + lcb
+  df.to_csv('data/first_format_bills_refund.csv') 
+
+
+# 每个月的订单 * 每个订单的消费记录
+def mission_8(refresh):
+  month_list = ['2016-01', '2016-02', '2016-03','2017-03','2016-04','2016-05','2016-06','2016-07','2016-08',
+  '2016-09','2016-10','2016-11', '2016-12','2017-01','2017-02','2017-03', '2017-04','2017-05','2017-06','2017-07',
+  '2017-08','2017-09','2017-10','2017-11', '2017-12', '2018-01', '2018-02', '2018-03', '2018-04', '2018-05', '2018-06']
+  df = pd.DataFrame(0, index = month_list, columns = month_list, dtype='uint8')
+  student_set = set()
+  bills = dict()
+  with conn.cursor() as cur:
+    sql = "select id, student_id, paid_at from bills where paid_at > '2016-01-01' and product_id \
+    in (5,6,13,19, 4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 27,28, 29, 1003, 1004, 1005, 1006, \
+    1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032, 1033, 1034, 1035, 1036, 1037, 1038) \
+    and status in (20, 70, 80) and student_id > 0 and deleted_at is null"
+    cur.execute(sql)
+    print(cur.rowcount)
+    while cur.rownumber < cur.rowcount:
+      r = cur.fetchone()
+      if r[1] not in student_set:
+        student_set.add(r[1])
+        month = r[2].strftime('%Y-%m')
+        if month in bills.keys():
+          bills[month].append(r[0])
+        else:
+          bills[month] = [r[0],]
  
 def my_mission_1():
   ls = LessonStudent()
@@ -183,7 +290,8 @@ if __name__ == "__main__":
   #mission_3(False)
   #mission_4(False)
   #mission_5(False)
-  mission_6(False)
+  #mission_6(False)
+  mission_7(False)
   #my_mission_2_1()
   #my_mission_2_2()
   #data_frame_1(True)
