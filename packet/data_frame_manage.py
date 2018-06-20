@@ -11,7 +11,9 @@ sys.path.append('..')
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent
 from produce_month_index import MonthIndexFactroy, MonthIndex
+from sklearn.decomposition import NMF, LatentDirichletAllocation
 from collections import Counter
+from time import time
 import pandas as pd
 import numpy as np
 
@@ -244,11 +246,18 @@ def mission_8(refresh):
  
 def my_mission_1():
   ls = LessonStudent()
-  m = MonthIndexFactroy(begin='2017-05')
+  m = MonthIndexFactroy(begin='2018-03')
   lsb = ls.get_dataframe()
-  u,s,v = np.linalg.svd(lsb.iloc[:,0:10000].values, False)
-  pdb.set_trace()
-  print(u)
+  #ls.scan_records(m)
+  lda = LatentDirichletAllocation(n_components=12, max_iter=5, learning_method='online', learning_offset=50., random_state=0)
+  t0 = time()
+  lda.fit(lsb)
+  print("done in %0.3fs." % (time() - t0))
+  #u,s,v = np.linalg.svd(lsb.iloc[:,0:10000].values, False)
+  for topic_idx, topic in enumerate(lda.components_):
+    print("Topic #%d:" % topic_idx)
+    print(" ".join([ str(lsb.columns[i]) for i in topic.argsort()[-20:]]))
+    print()
 
 # 上课统计
 def my_mission_2_1():
@@ -291,7 +300,7 @@ if __name__ == "__main__":
   #mission_4(False)
   #mission_5(False)
   #mission_6(False)
-  mission_7(False)
-  #my_mission_2_1()
+  #mission_7(False)
+  my_mission_1()
   #my_mission_2_2()
   #data_frame_1(True)

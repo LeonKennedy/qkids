@@ -210,9 +210,11 @@ class LessonStudent(BaseQkidsDataFrame):
     self.get_course_lesson()
 
   def scan_records(self,month):
-    lessons = self.get_course_lesson()
-    vip_student_list = self.get_student_by_tag()
-    dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list, dtype='uint8')
+    if self.out_dataframe is None:
+      lessons = self.get_course_lesson()
+      vip_student_list = self.get_student_by_tag()
+      self.out_dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list, dtype='uint8')
+    dataframe = self.out_dataframe
     for m in month.output:
       self.log.info('fetch month %s from databse' % m.name)
       for row in self.get_records_by_month(m):
@@ -222,13 +224,11 @@ class LessonStudent(BaseQkidsDataFrame):
           dataframe.loc[row[1], row[0]] += 1
       pd.to_pickle(dataframe, self.filename)
       self.log.info('saved to file: %s' % self.filename)
-    self.out_dataframe = dataframe
 
   def get_records_by_month(self, m):
     legacy_data = None
     data = None
-    #if m.name <= '2018-03':
-    if False:
+    if m.name <= '2018-03':
       with self.product_conn.cursor() as cur:
         sql = "select user_id, lesson_id from user_schedules where locked_at \
         between %r and %r and status_id = 40 and deleted_at is null" % (m.begin, m.end)
@@ -275,9 +275,11 @@ class LessonStudent(BaseQkidsDataFrame):
     return df
 
 if __name__ == "__main__":
-  f = FisrtBuyMonthStudent()
-  fb = f.get_dataframe()
   #vip_columns = f.get_student_by_tag(1)
+  ls = LessonStudent()
+  m = MonthIndex('2018-01-01','2018-02-01')
+  a = ls.get_records_by_month(m)
+
   #func = lambda x: 0 if x == 0 else 1
   #f = fb.filter(items = vip_columns)
   #f = f.applymap(func)
