@@ -243,6 +243,21 @@ def mission_8(refresh):
           bills[month].append(r[0])
         else:
           bills[month] = [r[0],]
+
+# （新用户小单，新用户大单，续费小单，续费大单）*  每个月人数
+def mission_9(refresh):
+  f = FisrtBuyMonthStudent(category=1, statistics_type='count')
+  ms = MonthIndexFactroy(begin='2015-12')
+  buy_set = set()
+  df = pd.Series(0, index = ms.index, dtype='uint16')
+  for m in ms.output:
+    for row in f.get_student_by_month(m):
+      sid = row[0] 
+      if sid not in buy_set:
+        buy_set.add(sid)
+        df.loc[m.name] += 1
+    print(df)
+
  
 def my_mission_1():
   ls = LessonStudent()
@@ -301,6 +316,7 @@ if __name__ == "__main__":
   #mission_5(False)
   #mission_6(False)
   #mission_7(False)
-  my_mission_1()
+  mission_9(False)
+  #my_mission_1()
   #my_mission_2_2()
   #data_frame_1(True)
