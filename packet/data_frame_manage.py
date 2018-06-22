@@ -25,20 +25,21 @@ def data_frame_1(refresh=False):
 
 # 1. 每个月的新长期用户  *   课消
 def mission_1(refresh):
-  f = FisrtBuyMonthStudent()
-  fb = f.get_dataframe()
-  vip_columns = pd.read_pickle(vip_filename)
+  f = FisrtBuyMonthStudent(3, 'distinct')
+  fb = f.get_dataframe(refresh=True)
+  #vip_columns = pd.read_pickle(vip_filename)
   #pd.to_pickle(vip_columns, 'vip_student')
   func = lambda x: 0 if x == 0 else 1
-  f = fb.filter(items = vip_columns)
-  f = f.applymap(func)
+  #f = fb.filter(items = vip_columns)
+  #f = f.applymap(func)
 
-  c = ConsumeMonthStudent(statistics_type='count')
+  c = ConsumeMonthStudent(3)
   cb = c.get_dataframe(refresh=refresh)
-  c = cb.filter(items= vip_columns)
-  a = f.dot(c.T) 
-  count_student = f.sum(axis= 1)
+  #c = cb.filter(items= vip_columns)
+  a = fb.dot(cb.T) 
+  count_student = fb.sum(axis= 1)
   a.insert(0, 'count', count_student)
+  pdb.set_trace()
   a.to_csv('data/student_consumser.csv')
 
 # 2. 每个月的新长期用户  *   留存 只算一次
@@ -258,7 +259,53 @@ def mission_9(refresh):
         df.loc[m.name] += 1
     print(df)
 
- 
+def mission_10(refresh):
+  f = FisrtBuyMonthStudent(category= 3)
+  ms = MonthIndexFactroy()
+  buy_set = set()
+  format_buy_set = set()
+  index = ['experience','experience_flow', 'format', 'format_flow']
+  df = pd.DataFrame(0, index = ms.index, columns = index, dtype='uint32')
+  for m in ms.output:
+    print(m.name)
+    for row  in f.get_records_by_month(m):
+      pdb.set_trace()
+      sid = row[0]
+      pid = row[2]
+      # bill
+      if row[1] == 0 :
+        if pid in (5,6,13, 19) :
+          if sid not in format_buy_set:
+            df.loc[m.name, 'format'] += 1
+            df.loc[m.name, 'format_flow'] += int(row[3])
+            format_buy_set.add(sid)
+        else:
+          if sid not in buy_set:
+            df.loc[m.name, 'experience'] += 1
+            df.loc[m.name, 'experience_flow'] += int(row[3])
+            buy_set.add(sid)
+      # cash bill
+      elif row[1] == 1:
+        if pid == 1:
+          if sid not in buy_set:
+            df.loc[m.name, 'experience'] += 1
+            df.loc[m.name, 'experience_flow'] += int(row[3])
+            buy_set.add(sid)
+        elif pid in (2,3,4):
+          if sid not in format_buy_set:
+            df.loc[m.name, 'format'] += 1
+            df.loc[m.name, 'format_flow'] += int(row[3])
+            format_buy_set.add(sid)
+  pdb.set_trace()
+  print(df)
+  cumsum_format = df.loc[:, 'format'].cumsum()
+  cumsum_experience = df.loc[:, 'experience'].cumsum()
+  df.insert(2, 'cumsum_format',  cumsum_format)
+  df.insert(0, 'cumsum_experience',  cumsum_experience)
+  df.to_csv('data/user_recharge.csv')
+
+
+
 def my_mission_1():
   ls = LessonStudent()
   m = MonthIndexFactroy(begin='2018-03')
@@ -309,14 +356,15 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  #mission_1(False)
+  mission_1(False)
   #mission_2(False)
   #mission_3(False)
   #mission_4(False)
   #mission_5(False)
   #mission_6(False)
   #mission_7(False)
-  mission_9(False)
+  #mission_9(False)
+  #mission_10(False)
   #my_mission_1()
   #my_mission_2_2()
   #data_frame_1(True)

@@ -33,18 +33,18 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     self.cash_bill_conn = get_cash_billing_connection()
 
   def scan_records(self, months):
-    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint16')
+    dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint8')
     buy_set = set()
     for m in months.output:
       counter = Counter()
-      print('fetch month %s from database' % m.name)
+      self.log.info('fetch month %s from database' % m.name)
       for row in self.get_student_by_month(m):
         sid = row[0]
         if self.statistics_type == 'count':
           counter[sid] += 1
         elif self.statistics_type == 'distinct':
           if sid not in buy_set:
-            counter[sid] += float(row[1])
+            counter[sid] = 1
             buy_set.add(sid)
         else:
           counter[sid] += float(row[1])
@@ -55,6 +55,8 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     self.out_dataframe = dataframe
 
   def increase_singleton(self, m):
+    if not self.statistics_type == 'sum':
+      return 
     counter = Counter()
     buy_set = set()
     for row in self.get_student_by_month(m):
@@ -79,9 +81,32 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     with self.cash_bill_conn.cursor() as cur:
       sql = "select student_id, sum(actual_price) from bills where paid_at between \
       %r and %r and product_id in %s and status in (20, 80) and student_id > 0 and \
-      deleted_at is null group by student_id" % (month.begin, month.end, str(self.cash_product_ids))
+      deleted_at is null and product_type = 0 group by student_id" % (month.begin, month.end, str(self.cash_product_ids))
       cur.execute(sql)
     return data + cur.fetchall()
+
+
+  def get_records_by_month(self, month):
+    with self.conn.cursor() as cur:
+      sql = "select student_id, 0, product_id, actual_price from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 80) and student_id > 0 and \
+      deleted_at is null " % (month.begin, month.end, str(self.product_ids))
+      cur.execute(sql)
+      data = cur.fetchall()
+    if month.name < '2018-03':
+      return data
+    with self.cash_bill_conn.cursor() as cur:
+      sql = "select student_id, 1, product_id, actual_price from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 80) and student_id > 0 and \
+      deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
+      cur.execute(sql)
+    return data + cur.fetchall()
+
+  def get_student_by_tag(self, tag=1):
+    self.log.info('get student by tag %d' % tag)
+    df = self.out_dataframe
+    split_price = 0
+    
 
   def get_student_by_tag(self, tag=1):
     self.log.info('get student by tag %d' % tag)
@@ -192,7 +217,7 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
       if m.name < '2018-03':
         return data
       with self.cash_bill_conn.cursor() as cur:
-        sql = "select student_id, case room_type when 2 then 1.5 when 5 then 2.5 \
+        sql = "select student_id, case room_type when 2 then 1 when 5 then 1.8 \
         else 3 end , date_format(created_at, '%%Y-%%m-%%d') from student_consumptions where created_at between %r and %r and \
         status = 2 and deleted_at is null " % (m.begin, m.end)
         cur.execute(sql)
