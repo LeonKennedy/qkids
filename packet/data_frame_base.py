@@ -25,6 +25,20 @@ logger.addHandler(console_handler)
 
 logger.setLevel(logging.INFO)
 
+class BaseDataFrame:
+  experience_product_id  = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 27,28, 29,
+      1003, 1004, 1005, 1006, 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
+      1033, 1034, 1035, 1036, 1037, 1038)
+  format_product_id = (5, 6, 13, 19)
+
+  def __init__(self):
+    self.log = logger
+    self.log.info('initial %s', self.__class__)
+    self.all_product_id  = self.experience_product_id +  self.format_product_id
+
+    self.student_set = get_student_list()
+
+
 class BaseQkidsDataFrame:
 
   def __init__(self, category=3, statistics_type = 'sum'):

@@ -14,7 +14,7 @@ import numpy as np
 from collections import Counter
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
 from produce_month_index import MonthIndexFactroy, MonthIndex
-from data_frame_base import BaseQkidsDataFrame
+from data_frame_base import BaseQkidsDataFrame,BaseDataFrame
 
 
 class StatisticsDataHouse:
@@ -224,6 +224,34 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
         return data + cur.fetchall() 
 
 
+class ScheduleDataFrame(BaseDataFrame):
+  def __init__(self):
+    super(ScheduleDataFrame, self).__init__()
+    self.conn = get_schedule_connection()
+    self.product_conn = get_product_connection()
+
+  def get_student_apointment_records_by_month(self, m):
+    self.log.info('fetch month %s from schedule database' % m.name)
+    legacy_data = tuple()
+    data = tuple()
+    if m.name <= '2018-03':
+      with self.product_conn.cursor() as cur:
+        sql = "select user_id, room_type_id , s.lesson_id , begin_at from user_schedules us \
+        join schedules s on  us.schedule_id = s.schedule_id and begin_at between %r and \
+        %r and internal = 0 and s.deleted_at is null where status_id = 40 and us.deleted_at \
+        is null" % (m.begin, m.end)
+        cur.execute(sql) 
+        legacy_data = cur.fetchall()
+    if m.name >= '2017-05':
+      with self.conn.cursor() as cur:
+        sql = "select student_id, room_type_id, lesson_id, begin_at from student_appointments sa \
+        join schedules s on sa.schedule_id = s.id and begin_at between %r and %r and \
+        s.is_internal = 0 and s.deleted_at is null where status = 3 and sa.deleted_at \
+        is null" % (m.begin, m.end)
+        cur.execute(sql)
+        data = cur.fetchall()
+    return data + legacy_data
+
 class LessonStudent(BaseQkidsDataFrame):
   def __init__(self, category = 1):
     super(LessonStudent, self).__init__(category, 'count')
@@ -298,6 +326,50 @@ class LessonStudent(BaseQkidsDataFrame):
       df[c] = self.out_dataframe.loc[ls,].sum()
     self.course_dataframe = df
     return df
+
+ 
+class AppointmentStudent(ScheduleDataFrame):
+  def __init__(self, category = 1):
+    super(AppointmentStudent, self).__init__()
+    self.filename = 'data/appointment_student.pkl'
+
+  def transfer_to_data_frame(self,monthz = None):
+    if monthz is None:
+      monthz = MonthIndexFactroy()
+    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.student_set, dtype='uint8')
+    for m in monthz.output:
+      rows = self.get_student_apointment_records_by_month(m)
+      counter = self.handle_records(rows)
+
+      self.out_dataframe.loc[m.name] = 0
+      for k,v in counter.items():
+        if k in self.student_set:
+          self.out_dataframe.at[m.name, k] = v
+
+  def handle_records(self, rows):
+    counter = Counter()
+    # student_id, room_type_id, lesson_id, begin_at
+    for row in rows:
+      room_type = row[1]
+      lesson_count = float()
+      if room_type == 0:
+        lesson_count = 0.8
+      elif room_type == 1:
+        lesson_count = 1
+      elif room_type == 2:
+        lesson_count = 1.5
+        if row[3].strftime('%Y-%m-%d') > '2018-03-19':
+          lesson_count = 1
+      elif room_type == 5:
+        lesson_count = 1.8
+      counter[row[0]] += lesson_count
+    return counter
+
+  def get_dataframe(self):
+    self.transfer_to_data_frame()
+    return self.out_dataframe
+
+    
 
 if __name__ == "__main__":
   #vip_columns = f.get_student_by_tag(1)

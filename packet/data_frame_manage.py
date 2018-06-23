@@ -9,7 +9,7 @@
 import sys, pdb
 sys.path.append('..')
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
-from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent
+from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent, AppointmentStudent
 from produce_month_index import MonthIndexFactroy, MonthIndex
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 from collections import Counter
@@ -259,6 +259,7 @@ def mission_9(refresh):
         df.loc[m.name] += 1
     print(df)
 
+# 月  * 【 体验课积累，体验课新增，体验课流水，正式课累计，正式新增，正式流水】
 def mission_10(refresh):
   f = FisrtBuyMonthStudent(category= 3)
   ms = MonthIndexFactroy()
@@ -304,7 +305,18 @@ def mission_10(refresh):
   df.insert(0, 'cumsum_experience',  cumsum_experience)
   df.to_csv('data/user_recharge.csv')
 
+def mission_11(refresh):
+  f = FisrtBuyMonthStudent(3, 'distinct')
+  fb = f.get_dataframe(refresh=refresh)
 
+  a = AppointmentStudent()
+  cb = a.get_dataframe()
+  #c = cb.filter(items= vip_columns)
+  a = fb.dot(cb.T) 
+  count_student = fb.sum(axis= 1)
+  a.insert(0, 'count', count_student)
+  pdb.set_trace()
+  a.to_csv('data/student_consumser.csv')
 
 def my_mission_1():
   ls = LessonStudent()
@@ -356,7 +368,7 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  mission_1(False)
+  mission_11(False)
   #mission_2(False)
   #mission_3(False)
   #mission_4(False)
