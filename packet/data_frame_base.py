@@ -36,7 +36,26 @@ class BaseDataFrame:
     self.log.info('initial %s', self.__class__)
     self.all_product_id  = self.experience_product_id +  self.format_product_id
 
-    self.student_set = get_student_list()
+    #self.student_list = get_student_series()
+
+  def set_student_list(self, col):
+    self.students = col
+   # get_student_series(True)
+
+  def set_vip_student_list(self):
+    self.vip_student_list = get_vip_student_series(True)
+
+  def get_dataframe(self, refresh=False):
+    filename = self.filename
+    if not refresh and os.path.isfile(filename):
+      print('get data from file: %s' % filename)
+      return pd.read_pickle(filename)
+    else:
+      print('get data from database')
+      self.transfer_to_data_frame()
+      print('save to file: %s' % filename)
+      pd.to_pickle(self.out_dataframe, filename)
+      return self.out_dataframe
 
 
 class BaseQkidsDataFrame:
@@ -119,6 +138,23 @@ class BaseQkidsDataFrame:
     if os.path.isfile(filename):
       return pd.read_pickle(filename)
 
+def get_student_series(refresh=False):
+  filename = 'data/students.pkl'
+  if not refresh and os.path.isfile(filename):
+    print('read student from filename: %s' % filename)
+    return pd.read_pickle(filename)
+  else:
+    print('read students from database')
+    conn = get_product_connection()
+    with conn.cursor() as cur:
+      sql = "select user_id from users where encrypt_mobile_v2 is not null and deleted_at is null"
+      cur.execute(sql)
+      data = [ i[0] for i in cur.fetchall()]
+    s = pd.Series(data, dtype='uint32')
+    print('save student to file: %s' % filename)
+    pd.to_pickle(s, filename)
+    return s
+
 def get_student_list(refresh=False):
   filename = 'data/student_list'
   if os.path.isfile(filename):
@@ -130,7 +166,7 @@ def get_student_list(refresh=False):
       print('write to file: %s' % filename)
       with open(filename, 'w') as fo:
         fo.writelines([ str(i) + '\n' for i in student_list + inc_students])
-    return set(student_list + inc_students)
+    return student_list + inc_students
   conn = get_product_connection()
   with conn.cursor() as cur:
     sql = "select user_id from users where encrypt_mobile_v2 is not null and deleted_at is null"
@@ -139,8 +175,25 @@ def get_student_list(refresh=False):
     print('write to file: %s' % filename)
     with open(filename, 'w') as fo:
       fo.writelines([ str(i) + '\n' for i in data])
-  return set(data)
+  return data
 
+def get_vip_student_series(refresh=True):
+  filename = 'data/vip_students.pkl'
+  if os.path.isfile(filename):
+    print('get vip students from file: %s' % filename)
+    return pd.read_pickle(filename)
+  conn = get_product_connection()
+  with conn.cursor() as cur:
+    sql = "select user_id from users where first_large_buy_at is \
+    not null and encrypt_mobile_v2 is not null and deleted_at is \
+    null"
+    cur.execute(sql)
+    data = [ i[0] for i in cur.fetchall()]
+    s = pd.Series(data, dtype='uint32')
+    print('save vip student to file: %s' % filename)
+    pd.to_pickle(s, filename)
+    return s
+  
 def get_increate_students(sid):
   return []
   conn = get_product_connection()

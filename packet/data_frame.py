@@ -22,6 +22,167 @@ class StatisticsDataHouse:
   def __init__(self):
     pass
 
+
+class BillDataFrame(BaseDataFrame):
+  def __init__(self, category = 3):
+    super(BillDataFrame, self).__init__()
+    self.bill_conn = get_bills_connection()
+    self.cash_bill_conn = get_cash_billing_connection()
+    self.product_conn = get_product_connection()
+
+    self.category = category
+    if category == 1:
+      self.product_ids = self.format_product_id
+      self.cash_product_ids = (2,3,4)
+    elif category == 2:
+      self.product_ids = self.experience_product_id
+      self.cash_product_ids = (1, 999)
+    else:
+      self.product_ids = self.all_product_id
+      self.cash_product_ids = (1,2,3,4)
+  
+  def get_money_records_by_month(self, month):
+    with self.bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from bill database' % month.name)
+      sql = "select student_id, 0, product_id, actual_price from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 80) and student_id > 0 and \
+      deleted_at is null " % (month.begin, month.end, str(self.product_ids))
+      cur.execute(sql)
+      data = cur.fetchall()
+    if month.name < '2018-03':
+      return data
+    with self.cash_bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from cash_bill database' % month.name)
+      sql = "select student_id, 1, product_id, actual_price from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
+      and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
+      cur.execute(sql)
+    return data + cur.fetchall()
+
+  def get_lesson_records_by_month(self, month):
+    with self.bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from bill database' % month.name)
+      sql = "select student_id, lesson_count from bills b join products p \
+      on b.product_id  = p.id where paid_at between \
+      %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
+      b.deleted_at is null " % (month.begin, month.end, str(self.product_ids))
+      cur.execute(sql)
+      data = cur.fetchall()
+      return data
+    
+
+  def transfer_to_data_frame(self, monthz = None):
+    self.init_dataframe()
+    if monthz is None:
+      monthz = MonthIndexFactroy()
+
+    for m in monthz.output:
+      rows = self.get_records(m)
+      counter = self.handle_records(rows)
+
+      self.out_dataframe.loc[m.name] = 0
+      self.fill_data(m,counter)
+    self.after_dataframe()
+
+  def fill_data(self, month, counter):
+      for k,v in counter.items():
+        if k in self.out_dataframe.columns:
+          self.out_dataframe.at[month.name, k] = v
+
+  def after_dataframe(self):
+    pass
+    
+
+class FirstBuyMonthStudent(BillDataFrame):
+  def __init__(self, category = 3):
+    super(FirstBuyMonthStudent, self).__init__(category)
+    self.filename = 'data/first_buy_student.pkl'
+    self.buy_set = set()
+    self.get_records = self.get_money_records_by_month
+    self.handle_records = self.handle_records_first
+    
+  def init_dataframe(self):
+    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = (0,),dtype='uint8')
+    
+  def after_dataframe(self):
+    self.out_dataframe.pop(0)
+
+  def handle_records_first(self, rows):
+    counter = Counter()
+    for row in rows:
+      sid = row[0]
+      if sid not in self.buy_set:
+        counter[sid] = 1
+        self.buy_set.add(sid)
+    return counter
+
+  def fill_data(self, month, counter):
+      for k,v in counter.items():
+        self.out_dataframe.at[:,k] = 0
+        self.out_dataframe.at[m.name, k] = v
+
+  def create_vip_student_series(self):
+    filename = 'data/vip_students.pkl'
+    select_student_columns = list()
+    df = self.out_dataframe
+    for c in df.columns:
+      if (df.loc[:,c]  > 0).any():
+        select_student_columns.append(c)
+    vip_columns = pd.Series(select_student_columns)
+    print('save vip serires')
+    pd.to_pickle(vip_columns, filename)
+    return vip_columns
+
+#  每月购买课时数
+class BillingMonthStudent(BillDataFrame):
+  def __init__(self, category =3):
+    super(BillingMonthStudent, self).__init__(category)
+    self.filename = 'data/bill_month_student.pkl'
+    self.get_records = self.get_lesson_records_by_month
+    self.handle_records = self.handle_records_sum
+
+  def init_dataframe(self):
+    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.students ,dtype='float32')
+  def handle_records_sum(self, rows):
+    counter = Counter()
+    for row in rows:
+      sid = row[0]
+      counter[sid] += float(row[1])
+    return counter
+
+# ================= Refunds ==========
+
+class RefundDataFrame(BillDataFrame):
+  def __init__(self, category = 3):
+    super(RefundDataFrame, self).__init__(category)
+    self.filename = 'data/refund_month_student.pkl'
+    self.get_records = self.get_refund_records_by_month
+    self.handle_records = self.handle_records_sum
+
+  def init_dataframe(self):
+    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.students ,dtype='float32')
+    
+  def get_refund_records_by_month(self, month):
+    self.log.info('fetch month %s from bill database' % month.name)
+    with self.bill_conn.cursor() as cur:
+      sql = "select b.student_id, r.price, case r.type when 0 then  \
+      sp.lesson_count - lesson_count_used else legacy_lessons end from \
+      bills b join refunds r on b.id = r.bill_id and r.type in (0, 3)  and r.status = 3 and  \
+      r.deleted_at is null join student_products sp on b.id = sp.bill_id \
+      where paid_at between %r and %r and b.product_id  in %s and b.status in \
+      (20, 70, 80) and b.deleted_at is null" % (month.begin, month.end, str(self.product_ids))
+      cur.execute(sql)
+      data = cur.fetchall()
+      return data
+
+  def handle_records_sum(self, rows):
+    counter = Counter()
+    for row in rows:
+      f = row[2]
+      counter[row[0]] += round(f,1)
+    return counter
+
+
 class FisrtBuyMonthStudent(BaseQkidsDataFrame):
   
   # FisrtBuyMonth * Student
@@ -106,12 +267,6 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     self.log.info('get student by tag %d' % tag)
     df = self.out_dataframe
     split_price = 0
-    
-
-  def get_student_by_tag(self, tag=1):
-    self.log.info('get student by tag %d' % tag)
-    df = self.out_dataframe
-    split_price = 0
     select_student_columns = list()
     filename = None
     # 大单/长期用户
@@ -133,17 +288,19 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
       return vip_columns
 
   def create_vip_student_series(self):
-    filename = 'data/vip_student_series.pkl'
+    filename = 'data/vip_students.pkl'
     select_student_columns = list()
     split_price = 1000
+    if self.statistics_type == 'distinct':
+      split_price = 0
     df = self.out_dataframe
     for c in df.columns:
       if (df.loc[:,c]  > split_price).any():
         select_student_columns.append(c)
     vip_columns = pd.Series(select_student_columns)
-    pdb.set_trace()
     print('save vip serires')
     pd.to_pickle(vip_columns, filename)
+    return vip_columns
 
 class ConsumeMonthStudent(BaseQkidsDataFrame):
 

@@ -9,7 +9,7 @@
 import sys, pdb
 sys.path.append('..')
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
-from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent, AppointmentStudent
+from data_frame import ConsumeMonthStudent, FisrtBuyMonthStudent, LessonStudent, AppointmentStudent, FirstBuyMonthStudent, BillingMonthStudent, RefundDataFrame
 from produce_month_index import MonthIndexFactroy, MonthIndex
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 from collections import Counter
@@ -305,6 +305,7 @@ def mission_10(refresh):
   df.insert(0, 'cumsum_experience',  cumsum_experience)
   df.to_csv('data/user_recharge.csv')
 
+# 月新增用户 * 每个月的课时消耗情况
 def mission_11(refresh):
   f = FisrtBuyMonthStudent(3, 'distinct')
   fb = f.get_dataframe(refresh=refresh)
@@ -317,6 +318,23 @@ def mission_11(refresh):
   a.insert(0, 'count', count_student)
   pdb.set_trace()
   a.to_csv('data/student_consumser.csv')
+
+def mission_12(refresh):
+  #ss = get_vip_student_set()
+  f = FirstBuyMonthStudent(1)
+  fb = f.get_dataframe()
+  b = BillingMonthStudent(3)
+  b.set_student_list(fb.columns)
+  bb = b.get_dataframe()
+  r = RefundDataFrame(3)
+  r.set_student_list(fb.columns)
+  rb = r.get_dataframe()
+  sub = bb-rb
+  a = fb.dot(sub.T)
+  a.insert(0, 'count-refund', a.sum(axis=1))
+  #a.insert(0, 'count', bb.sum(axis=1)) 
+  a.to_csv('data/student_buy_lessons_sub_refunds.csv')
+  print(a)
 
 def my_mission_1():
   ls = LessonStudent()
@@ -368,7 +386,7 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  mission_11(False)
+  mission_12(False)
   #mission_2(False)
   #mission_3(False)
   #mission_4(False)
