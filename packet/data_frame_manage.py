@@ -305,13 +305,74 @@ def mission_10(refresh):
   df.insert(0, 'cumsum_experience',  cumsum_experience)
   df.to_csv('data/user_recharge.csv')
 
+# 月  * 【 体验课积累，体验课新增课时，正式积累，正式新增课时】
+def mission_10_1(refresh):
+  ms = MonthIndexFactroy()
+  buy_set = set()
+  format_buy_set = set()
+  index = ['experience', 'format' ]
+  df = pd.DataFrame(0, index = ms.index, columns = index, dtype='float32')
+  b = BillingMonthStudent(1)
+  for m in ms.output:
+    for row in b.get_lesson_records_by_month(m):
+      sid = row[0]
+      lesson = row[1]
+      if sid not in format_buy_set:
+        df.loc[m.name, 'format'] += round(float(lesson), 1)
+        format_buy_set.add(sid)
+  cumsum_format = df.loc[:, 'format'].cumsum()
+  df.insert(1, 'cumsum_format',  cumsum_format)
+  b = BillingMonthStudent(2)
+  for m in ms.output:
+    for row in b.get_lesson_records_by_month(m):
+      sid = row[0]
+      lesson = row[1]
+      if sid not in buy_set:
+        df.loc[m.name, 'experience'] += float(round(lesson, 1))
+        buy_set.add(sid)
+  cumsum_experience = df.loc[:, 'experience'].cumsum()
+  df.insert(0, 'cumsum_experience',  cumsum_experience)
+  df.to_csv('data/user_recharge_lessons.csv')
+  print(df)
+
+# 月  * 【 体验课，体验课总流水，正式，正式流水】
+def mission_10_2(refresh):
+  ms = MonthIndexFactroy(begin='2017-08')
+  index = ['experience', 'experience_flow', 'format', 'format_flow' ]
+  df = pd.DataFrame(0, index = ms.index, columns = index, dtype='float32')
+  b = BillingMonthStudent(1)
+  for m in ms.output:
+    for row in b.get_lesson_gift_by_month(m):
+      lesson = row[1]
+      df.loc[m.name, 'format'] += round(float(lesson), 1)
+    for row in b.get_money_records_by_month(m):
+      df.loc[m.name, 'format_flow'] += int(row[3])
+  b = BillingMonthStudent(2)
+  for m in ms.output:
+    for row in b.get_lesson_records_by_month(m):
+      lesson = row[1]
+      df.loc[m.name, 'experience'] += round(float(lesson), 1)
+    for row in b.get_money_records_by_month(m):
+      df.loc[m.name, 'experience_flow'] += int(row[3])
+  cumsum = df.loc[:, 'format_flow'].cumsum()
+  df.insert(3, 'cumsum_format_flow',  cumsum)
+  cumsum = df.loc[:, 'format'].cumsum()
+  df.insert(2, 'cumsum_format',  cumsum)
+  cumsum_experience = df.loc[:, 'experience_flow'].cumsum()
+  df.insert(1, 'cumsum_experience_flow',  cumsum_experience)
+  cumsum_experience = df.loc[:, 'experience'].cumsum()
+  df.insert(0, 'cumsum_experience',  cumsum_experience)
+  df.to_csv('data/user_recharge_lessons_flow.csv')
+
+
+
 # 月新增用户 * 每个月的课时消耗情况
 def mission_11(refresh):
-  f = FisrtBuyMonthStudent(3, 'distinct')
-  fb = f.get_dataframe(refresh=refresh)
-
+  f = FirstBuyMonthStudent(1)
+  fb = f.get_dataframe(refresh)
   a = AppointmentStudent()
-  cb = a.get_dataframe()
+  a.set_student_list(fb.columns)
+  cb = a.get_dataframe(True)
   #c = cb.filter(items= vip_columns)
   a = fb.dot(cb.T) 
   count_student = fb.sum(axis= 1)
@@ -333,7 +394,10 @@ def mission_12(refresh):
   a = fb.dot(sub.T)
   a.insert(0, 'count-refund', a.sum(axis=1))
   #a.insert(0, 'count', bb.sum(axis=1)) 
+  pdb.set_trace()
+  a = a.round()
   a.to_csv('data/student_buy_lessons_sub_refunds.csv')
+  
   print(a)
 
 def my_mission_1():
@@ -386,7 +450,7 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  mission_12(False)
+  mission_10_2(False)
   #mission_2(False)
   #mission_3(False)
   #mission_4(False)

@@ -45,7 +45,7 @@ class BillDataFrame(BaseDataFrame):
     with self.bill_conn.cursor() as cur:
       self.log.info('fetch month %s from bill database' % month.name)
       sql = "select student_id, 0, product_id, actual_price from bills where paid_at between \
-      %r and %r and product_id in %s and status in (20, 80) and student_id > 0 and \
+      %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
       deleted_at is null " % (month.begin, month.end, str(self.product_ids))
       cur.execute(sql)
       data = cur.fetchall()
@@ -57,20 +57,54 @@ class BillDataFrame(BaseDataFrame):
       %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
       and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
       cur.execute(sql)
-    return data + cur.fetchall()
+      return data + cur.fetchall()
 
   def get_lesson_records_by_month(self, month):
     with self.bill_conn.cursor() as cur:
       self.log.info('fetch month %s from bill database' % month.name)
-      sql = "select student_id, lesson_count from bills b join products p \
+      sql = "select student_id, lesson_count, product_id from bills b join products p \
       on b.product_id  = p.id where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
       b.deleted_at is null " % (month.begin, month.end, str(self.product_ids))
       cur.execute(sql)
       data = cur.fetchall()
+    if month.name < '2018-03':
       return data
-    
+    with self.cash_bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from cash_bill database' % month.name)
+      sql = "select student_id, actual_price/35, product_id from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
+      and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
+      cur.execute(sql)
+      return data + cur.fetchall()
 
+  def get_lesson_gift_by_month(self, month):
+    with self.bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from bill database' % month.name)
+      sql = "select student_id, lesson_count, product_id from bills b join products p \
+      on b.product_id  = p.id where paid_at between \
+      %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
+      b.deleted_at is null " % (month.begin, month.end, str(self.product_ids))
+      # 只有大单才算 赠送
+      if self.category == 1:
+        sql = "select b.student_id, sp.lesson_count + ifnull(sp2.lesson_count,0) from bills b \
+        join student_products sp on sp.bill_id  = b.id and sp.deleted_at is null \
+        left join student_products sp2 on sp2.parent_id = sp.id and sp2.deleted_at is null \
+        and sp2.lesson_count = 15 and sp2.admin_id = 0 \
+        where paid_at between %r and %r and b.product_id in %s and b.status in (20, 70, 80) \
+        and b.student_id > 0 and b.deleted_at is null " % (month.begin, month.end, str(self.product_ids))
+      cur.execute(sql)
+      data = cur.fetchall()
+    if month.name < '2018-03':
+      return data
+    with self.cash_bill_conn.cursor() as cur:
+      self.log.info('fetch month %s from cash_bill database' % month.name)
+      sql = "select student_id, actual_price/35, product_id from bills where paid_at between \
+      %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
+      and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
+      cur.execute(sql)
+      return data + cur.fetchall()
+    
   def transfer_to_data_frame(self, monthz = None):
     self.init_dataframe()
     if monthz is None:
@@ -119,7 +153,7 @@ class FirstBuyMonthStudent(BillDataFrame):
   def fill_data(self, month, counter):
       for k,v in counter.items():
         self.out_dataframe.at[:,k] = 0
-        self.out_dataframe.at[m.name, k] = v
+        self.out_dataframe.at[month.name, k] = v
 
   def create_vip_student_series(self):
     filename = 'data/vip_students.pkl'
@@ -147,7 +181,7 @@ class BillingMonthStudent(BillDataFrame):
     counter = Counter()
     for row in rows:
       sid = row[0]
-      counter[sid] += float(row[1])
+      counter[sid] += float(round(row[1], 1))
     return counter
 
 # ================= Refunds ==========
@@ -208,7 +242,7 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
             counter[sid] = 1
             buy_set.add(sid)
         else:
-          counter[sid] += float(row[1])
+          counter[sid] += round(row[1],1)
 
       for k,v in counter.items():
         if k in dataframe.columns:
@@ -489,19 +523,27 @@ class AppointmentStudent(ScheduleDataFrame):
   def __init__(self, category = 1):
     super(AppointmentStudent, self).__init__()
     self.filename = 'data/appointment_student.pkl'
+    #self.get_records = self.get_refund_records_by_month
+    #self.handle_records = self.handle_records_sum
 
   def transfer_to_data_frame(self,monthz = None):
+    self.init_dataframe()
     if monthz is None:
       monthz = MonthIndexFactroy()
-    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.student_set, dtype='uint8')
     for m in monthz.output:
       rows = self.get_student_apointment_records_by_month(m)
       counter = self.handle_records(rows)
 
       self.out_dataframe.loc[m.name] = 0
+      self.fill_data(m, counter)
+
+  def init_dataframe(self):
+    self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.students ,dtype='uint16')
+    
+  def fill_data(self, month, counter):
       for k,v in counter.items():
-        if k in self.student_set:
-          self.out_dataframe.at[m.name, k] = v
+        if k in self.out_dataframe.columns:
+          self.out_dataframe.at[month.name, k] = v
 
   def handle_records(self, rows):
     counter = Counter()
@@ -510,7 +552,7 @@ class AppointmentStudent(ScheduleDataFrame):
       room_type = row[1]
       lesson_count = float()
       if room_type == 0:
-        lesson_count = 0.8
+        lesson_count = 1
       elif room_type == 1:
         lesson_count = 1
       elif room_type == 2:
@@ -521,10 +563,6 @@ class AppointmentStudent(ScheduleDataFrame):
         lesson_count = 1.8
       counter[row[0]] += lesson_count
     return counter
-
-  def get_dataframe(self):
-    self.transfer_to_data_frame()
-    return self.out_dataframe
 
     
 
