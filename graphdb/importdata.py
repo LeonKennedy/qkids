@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 # @Filename: importdata.py
-# @Author: olenji - lionhe0119@hotmail.com
+# @Author: Lorenzo - lionhe0119@hotmail.com
 # @Description: ---
 # @Create: 2018-06-29 10:31:46
 # @Last Modified: 2018-06-29 10:31:46
@@ -14,46 +14,63 @@ from LocalDatabase import get_bills_connection, get_schedule_connection, get_pro
 from neo4j.v1 import GraphDatabase
 
 
-class Room:
-
-  def __init__(self):
-    self.conn = get_schedule_connection()
+class ModelHandler:
 
   def get_records(self):
-    sql = "select id, schedule_id, teacher_id, student_count, created_at, status \
-      from rooms  where is_internal = 0 and deleted_at is null limit 100"
     with self.conn.cursor() as cur:
-      pass
-
-
-class Student:
-  def __init__(self):
-    self.conn = get_product_connection()
-    self.driver = get_graphdb_deriver()
-
-  def get_records(self):
-    sql = "select user_id, nick_name, gender, birthday, place from users \
-      where encrypt_mobile_v2 is not null and deleted_at is null limit 100"
-    with self.conn.cursor() as cur:
-      cur.execute(sql)
+      cur.execute(self.sql)
       while cur.rownumber < cur.rowcount:
         yield cur.fetchone()
 
   def insert(self):
-    cql = "merge (a:Student {id: $uid, nick_name: $name, gender: $gender})"
-    def add_student(tx, row):
-      tx.run(cql, uid=row[0], name=row[1], gender=row[2])
-
     with self.driver.session() as session:
       for row in self.get_records():
-        self.create_transaction(row)  
-        #session.write_transaction()
-  def create_transaction(row):
-    k = ['id', 'name', 'gender', 'birthday', 'place']
-    a = dict(k, row)
-    pdb.set_trace()
-    cql = "merge (a:Student {id:$uid}"
-    cql += "on create set "
+        a = self.create_transaction(row)  
+        session.write_transaction(a)
+    
+class Room(ModelHandler):
+
+  def __init__(self):
+    self.conn = get_schedule_connection()
+    self.driver = get_graphdb_deriver()
+
+    self.sql = "select id, schedule_id, teacher_id, student_count, created_at, status \
+      from rooms  where is_internal = 0 and deleted_at is null limit 100"
+
+  def create_transaction(self, row):
+    cql = "merge (a:Room {id:%d})" % row[0]
+    param = "a.schedule_id=%d," % row[1]
+    param += "" if row[2] is None else "a.teacher_id=%d," % row[2]
+    param += "a.student_count=%d," % row[3]
+    param += "a.created_at=datetime(%r)," % row[4].strftime('%Y-%m-%dT%H:%M:%S')
+    param += "a.status = %d" % row[5]
+    cql += " on create set %s" % param
+    cql += " on match set %s" % param
+    print(cql)
+    return lambda tx:tx.run(cql)
+    
+
+class Student(ModelHandler):
+  def __init__(self):
+    self.conn = get_product_connection()
+    self.driver = get_graphdb_deriver()
+
+    self.sql = "select user_id, nick_name, gender, birthday, place from users \
+      where encrypt_mobile_v2 is not null and deleted_at is null limit 100"
+
+
+  def create_transaction(self, row):
+    cql = "merge (a:Student {id:%d}) " % row[0]
+    param = " a.name=%r ," % row[1]
+    param += " a.gender=%d ," % row[2]
+    param += "" if row[3] is None else " a.birth=date(%r)," % row[3].strftime('%Y-%m-%d')
+    param += "" if row[4] is None else " a.place=%r" % row[4]
+    cql += "on create set %s " %  param
+    cql += "on match set %s " % param
+    def add_student(tx):
+      tx.run(cql)
+    return add_student
+    
     
 def test_driver():
   driver = get_graphdb_deriver()
@@ -68,4 +85,6 @@ def test_driver():
 if __name__ == "__main__":
   #test_driver()
   s = Student()
-  s.insert()
+  #s.insert()
+  r = Room()
+  r.insert()
