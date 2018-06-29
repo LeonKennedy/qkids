@@ -2,3 +2,4 @@ LocalDatabase.py
 QkidsRedis.py
 __pycache__
 *.csv
+*.swp
