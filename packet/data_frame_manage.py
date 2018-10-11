@@ -78,6 +78,7 @@ def mission_3(refresh):
   a.to_csv('data/lesson_student.csv')
 
 # 4.体课/新签人数/购买活动包  首次购买正价包
+# 当月新签用户  *  购买正价课程包首单人数（当月购买人数）
 def mission_4(refresh):
   f = FisrtBuyMonthStudent(category=2, statistics_type='distinct')
   fb = f.get_dataframe(refresh=refresh)
@@ -450,10 +451,10 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  mission_10_2(False)
+  #mission_10_2(False)
   #mission_2(False)
   #mission_3(False)
-  #mission_4(False)
+  mission_4(True)
   #mission_5(False)
   #mission_6(False)
   #mission_7(False)

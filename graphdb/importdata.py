@@ -130,15 +130,18 @@ class Teacher(ModelHandler):
   def __init__(self):
     self.conn = get_teacher_connection()
     self.driver = get_graphdb_deriver()
+
+  def init_insert(self):
     self.sql = "select id, nick_name, gender, status_id, avg_rating, likes from teachers \
       where status_id in (1,2,5) and deleted_at is null"
+    self.get_cypherql = self.get_insert_cypherql
 
-  def get_cypherql(self, row):
+  def get_insert_cypherql(self, row):
     cql = "merge (a:Teacher {id:%d}) " % row[0]
     param = " a.name = %r," % row[1]
     param += " a.gender=%d," % row[2]
     param += " a.status = %d," % row[3]
-    param += " a.status = %f," % float(row[4])
+    param += " a.rating = %f," % float(row[4])
     param += " a.likes = %d " % row[5]
     cql += "on create set %s " %  param
     cql += "on match set %s " % param
@@ -154,12 +157,21 @@ def test_driver():
   with driver.session() as session:
     session.read_transaction(print_count)
 
+def baseImport():
+  t = Teacher()
+  t.init_insert()
+  t.run()
+
+def secondImport():
+  r = Room()
+
 if __name__ == "__main__":
+  baseImport()
   #test_driver()
-  s = Student()
+  #s = Student()
   #s.init_insert()
-  s.init_relation_room()
-  s.run()
+  #s.init_relation_room()
+  #s.run()
   #r = Room()
   #r.init_relation_schedule()
   #r.run()

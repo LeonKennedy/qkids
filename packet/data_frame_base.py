@@ -12,6 +12,7 @@ sys.path.append('..')
 import pandas as pd
 from produce_month_index import MonthIndexFactroy, MonthIndex
 from LocalDatabase import get_bills_connection, get_schedule_connection, get_product_connection, get_cash_billing_connection, get_course_connection
+from collections import namedtuple
 
 logger = logging.getLogger("main")
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
@@ -25,6 +26,23 @@ logger.addHandler(console_handler)
 
 logger.setLevel(logging.INFO)
 
+ProductIds = namedtuple('ProductIds','name bill_ids cash_bill_ids')
+ExperienceProduct = ProductIds('experience', (), ())
+
+def get_product_ids_from_database(t):
+  bill_conn = get_bills_connection()
+  sql = "select group_concat(id) from products where billing_type = %d" % t
+  with bill_conn.cursor() as cur:
+    cur.execute(sql)
+    data = cur.fetchone()
+  return tuple( int(i) for i in data[0].split(','))
+  
+def get_experience_product():
+  return ProductIds('experience', get_product_ids_from_database(1), (1, 999))
+
+def get_format_product():
+  return ProductIds('format', get_product_ids_from_database(2), (2,3,4))
+
 class BaseDataFrame:
   experience_product_id  = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 27,28, 29,
       1003, 1004, 1005, 1006, 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
@@ -35,12 +53,7 @@ class BaseDataFrame:
     self.log = logger
     self.log.info('initial %s', self.__class__)
     self.all_product_id  = self.experience_product_id +  self.format_product_id
-
     #self.student_list = get_student_series()
-
-  def set_student_list(self, col):
-    self.students = col
-   # get_student_series(True)
 
   def set_vip_student_list(self):
     self.vip_student_list = get_vip_student_series(True)
@@ -67,8 +80,8 @@ class BaseQkidsDataFrame:
     # 订单id
     small_product_id = (4,8,10, 11, 12, 20, 21, 22, 23, 24, 25, 26, 27,28, 29, 
       1003, 1004, 1005, 1006, 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032,
-      1033, 1034, 1035, 1036, 1037, 1038)
-    big_product_id = (5, 6, 13, 19)
+      1033, 1034, 1035, 1036, 1037, 1038, 1039, 1040, 1041, 1043, 1044)
+    big_product_id = (5, 6, 13, 19, 1057, 1058)
     all_product_id = big_product_id + small_product_id
 
     self.filename = 'data/temp.pkl'
@@ -205,4 +218,7 @@ def get_increate_students(sid):
   
 if __name__ == "__main__":
   b = BaseQkidsDataFrame()
+  c = get_experience_product()
+  pdb.set_trace()
+  print(c.name)
     

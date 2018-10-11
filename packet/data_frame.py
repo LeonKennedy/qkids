@@ -575,7 +575,6 @@ if __name__ == "__main__":
   #func = lambda x: 0 if x == 0 else 1
   #f = fb.filter(items = vip_columns)
   #f = f.applymap(func)
-  pass
   #cb = c.get_dataframe()
   #c = cb.filter(items= vip_columns)
   #a = f.dot(c.T) 
