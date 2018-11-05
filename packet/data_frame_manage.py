@@ -17,7 +17,7 @@ from time import time
 import pandas as pd
 import numpy as np
 
-vip_filename = 'data/vip_student_series.pkl'
+vip_filename = 'data/vip_student.pkl'
 def data_frame_1(refresh=False):
   f = FisrtBuyMonthStudent()
   fb = f.get_dataframe(refresh=refresh)
@@ -451,15 +451,15 @@ def my_mission_2_2():
 
 
 if __name__ == "__main__":
-  #mission_10_2(False)
-  #mission_2(False)
-  #mission_3(False)
+  data_frame_1(True)
+  mission_10_2(True)
+  mission_2(True)
+  mission_3(True)
   mission_4(True)
-  #mission_5(False)
-  #mission_6(False)
-  #mission_7(False)
-  #mission_9(False)
-  #mission_10(False)
+  mission_5(True)
+  mission_6(True)
+  mission_7(True)
+  mission_9(True)
+  mission_10(True)
   #my_mission_1()
   #my_mission_2_2()
-  #data_frame_1(True)

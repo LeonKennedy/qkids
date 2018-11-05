@@ -43,7 +43,7 @@ class BillDataFrame(BaseDataFrame):
   
   def get_money_records_by_month(self, month):
     with self.bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from bill database' % month.name)
+      #self.log.info('fetch month %s from bill database' % month.name)
       sql = "select student_id, 0, product_id, actual_price from bills where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
       deleted_at is null " % (month.begin, month.end, str(self.product_ids))
@@ -52,7 +52,7 @@ class BillDataFrame(BaseDataFrame):
     if month.name < '2018-03':
       return data
     with self.cash_bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from cash_bill database' % month.name)
+      #self.log.info('fetch month %s from cash_bill database' % month.name)
       sql = "select student_id, 1, product_id, actual_price from bills where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
       and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
@@ -61,7 +61,7 @@ class BillDataFrame(BaseDataFrame):
 
   def get_lesson_records_by_month(self, month):
     with self.bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from bill database' % month.name)
+      #self.log.info('fetch month %s from bill database' % month.name)
       sql = "select student_id, lesson_count, product_id from bills b join products p \
       on b.product_id  = p.id where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
@@ -71,7 +71,7 @@ class BillDataFrame(BaseDataFrame):
     if month.name < '2018-03':
       return data
     with self.cash_bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from cash_bill database' % month.name)
+      #self.log.info('fetch month %s from cash_bill database' % month.name)
       sql = "select student_id, actual_price/35, product_id from bills where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
       and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
@@ -80,7 +80,7 @@ class BillDataFrame(BaseDataFrame):
 
   def get_lesson_gift_by_month(self, month):
     with self.bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from bill database' % month.name)
+      #self.log.info('fetch month %s from bill database' % month.name)
       sql = "select student_id, lesson_count, product_id from bills b join products p \
       on b.product_id  = p.id where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and student_id > 0 and \
@@ -98,7 +98,7 @@ class BillDataFrame(BaseDataFrame):
     if month.name < '2018-03':
       return data
     with self.cash_bill_conn.cursor() as cur:
-      self.log.info('fetch month %s from cash_bill database' % month.name)
+      #self.log.info('fetch month %s from cash_bill database' % month.name)
       sql = "select student_id, actual_price/35, product_id from bills where paid_at between \
       %r and %r and product_id in %s and status in (20, 70, 80) and pay_channel <> 'migration' \
       and student_id > 0 and deleted_at is null and product_type = 0 " % (month.begin, month.end, str(self.cash_product_ids))
@@ -197,7 +197,7 @@ class RefundDataFrame(BillDataFrame):
     self.out_dataframe = pd.DataFrame(0, index = ('2015-12',), columns = self.students ,dtype='float32')
     
   def get_refund_records_by_month(self, month):
-    self.log.info('fetch month %s from bill database' % month.name)
+    #self.log.info('fetch month %s from bill database' % month.name)
     with self.bill_conn.cursor() as cur:
       sql = "select b.student_id, r.price, case r.type when 0 then  \
       sp.lesson_count - lesson_count_used else legacy_lessons end from \
@@ -232,7 +232,7 @@ class FisrtBuyMonthStudent(BaseQkidsDataFrame):
     buy_set = set()
     for m in months.output:
       counter = Counter()
-      self.log.info('fetch month %s from database' % m.name)
+      #self.log.info('fetch month %s from database' % m.name)
       for row in self.get_student_by_month(m):
         sid = row[0]
         if self.statistics_type == 'count':
@@ -361,7 +361,7 @@ class ConsumeMonthStudent(BaseQkidsDataFrame):
     dataframe = pd.DataFrame(0, index = months.index, columns=self.student_list, dtype='uint16')
     buy_set = set()
     for m in months.output:
-      self.log.info('fetch month %s from database' % m.name)
+      #self.log.info('fetch month %s from database' % m.name)
       for row in self.get_records_by_month(m):
         sid = row[0]
         if sid in dataframe.columns :
@@ -422,7 +422,7 @@ class ScheduleDataFrame(BaseDataFrame):
     self.product_conn = get_product_connection()
 
   def get_student_apointment_records_by_month(self, m):
-    self.log.info('fetch month %s from schedule database' % m.name)
+    #self.log.info('fetch month %s from schedule database' % m.name)
     legacy_data = tuple()
     data = tuple()
     if m.name <= '2018-03':
@@ -460,7 +460,7 @@ class LessonStudent(BaseQkidsDataFrame):
       self.out_dataframe = pd.DataFrame(0, index = lessons, columns=vip_student_list, dtype='uint8')
     dataframe = self.out_dataframe
     for m in month.output:
-      self.log.info('fetch month %s from databse' % m.name)
+      #self.log.info('fetch month %s from databse' % m.name)
       for row in self.get_records_by_month(m):
         sid = row[0]
         lid = row[1]
